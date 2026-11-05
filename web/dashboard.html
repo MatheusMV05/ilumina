@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iluminação IoT · Painel</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e0da;
+  --grid: #ebe9e4;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --lamp: #eda100;
+  --lamp-off: #d9d7d1;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --neutral: #8a8984;
+  --good-bg: #e7f6e7;
+  --warning-bg: #fff4dc;
+  --critical-bg: #fbe8e8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --surface-2: #222220;
+    --border: #2e2e2c;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --lamp: #c98500;
+    --lamp-off: #383835;
+    --neutral: #7a7974;
+    --good-bg: #16261a;
+    --warning-bg: #2b2414;
+    --critical-bg: #2e1a1a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+h3 { font-size: 14px; margin: 0; }
+.section-sub { color: var(--text-secondary); font-size: 13px; margin: 0 0 14px; }
+.muted { color: var(--text-muted); }
+.secondary { color: var(--text-secondary); }
+.num { font-variant-numeric: tabular-nums; }
+button {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 6px 14px; border-radius: 8px; border: 1px solid var(--text-primary);
+  background: var(--text-primary); color: var(--surface-1);
+}
+button.ghost { background: transparent; color: var(--text-primary); border-color: var(--border); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+
+header {
+  display: flex; flex-wrap: wrap; gap: 12px 20px;
+  align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.head-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px; margin-bottom: 16px;
+}
+
+/* Selo de estado: ícone + texto, nunca só cor */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px 2px 6px; border-radius: 999px;
+  border: 1px solid var(--border); font-size: 12px; font-weight: 600;
+  white-space: nowrap; color: var(--text-primary); background: var(--surface-1);
+}
+.dot {
+  width: 18px; height: 18px; border-radius: 50%; flex: none;
+  display: inline-grid; place-items: center;
+  font-size: 11px; font-weight: 700; line-height: 1; color: #fff;
+}
+.s-good .dot, .dot.s-good { background: var(--good); }
+.s-warning .dot, .dot.s-warning { background: var(--warning); color: #3a2a00; }
+.s-serious .dot, .dot.s-serious { background: var(--serious); }
+.s-critical .dot, .dot.s-critical { background: var(--critical); }
+.s-neutral .dot, .dot.s-neutral { background: var(--neutral); }
+
+/* Resumo no topo */
+.banner { display: flex; gap: 16px; align-items: flex-start; }
+.banner.s-good { background: var(--good-bg); }
+.banner.s-warning { background: var(--warning-bg); }
+.banner.s-critical { background: var(--critical-bg); }
+.banner .big-dot { width: 40px; height: 40px; font-size: 20px; }
+.banner h2 { font-size: 18px; margin-bottom: 2px; }
+.banner ul { margin: 10px 0 0; padding-left: 18px; }
+.banner li { margin: 3px 0; }
+
+/* Fluxo de decisão */
+.flow {
+  display: grid; gap: 12px;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1.1fr;
+  align-items: stretch;
+}
+.arrow { align-self: center; color: var(--text-muted); font-size: 18px; }
+.step { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.step .label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.step .result { font-size: 18px; font-weight: 700; margin: 4px 0 8px; }
+.step .detail { font-size: 12px; color: var(--text-secondary); }
+.row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0; }
+.row span:first-child { color: var(--text-secondary); }
+.scale { position: relative; height: 10px; border-radius: 5px; background: var(--grid); margin: 10px 0 18px; }
+.scale .band { position: absolute; top: 0; bottom: 0; background: var(--border); }
+.scale .tick { position: absolute; top: -3px; width: 2px; height: 16px; background: var(--text-muted); }
+.scale .marker {
+  position: absolute; top: -4px; width: 4px; height: 18px; border-radius: 2px;
+  background: var(--series-1); box-shadow: 0 0 0 2px var(--surface-1);
+}
+.scale .tick-label { position: absolute; top: 14px; font-size: 10px; color: var(--text-muted); }
+#tickNightLabel { transform: translateX(calc(-100% - 2px)); }
+#tickDayLabel { transform: translateX(4px); }
+.or-box { display: grid; gap: 6px; }
+.sensor-line {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  font-size: 12px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+}
+.sensor-line.hit { border-color: var(--series-1); box-shadow: inset 3px 0 0 var(--series-1); }
+.lamps { display: flex; gap: 10px; margin: 6px 0 8px; }
+.lamp { text-align: center; font-size: 11px; color: var(--text-secondary); }
+.lamp .bulb {
+  width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 4px;
+  background: var(--lamp-off); border: 2px solid var(--border);
+  transition: background .3s, box-shadow .3s;
+}
+
+/* Cartões de sensor */
+.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card.lighting-input { box-shadow: inset 0 3px 0 var(--series-1); }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.card-head .role { font-size: 12px; color: var(--text-secondary); }
+.tag {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--series-1); margin-top: 2px;
+}
+.reading { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.reading .value { font-size: 26px; font-weight: 700; }
+.reading .meaning { font-size: 13px; color: var(--text-secondary); }
+.reading.off .value { color: var(--text-muted); }
+.spark-wrap canvas { width: 100%; height: 44px; display: block; }
+.spark-note { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+
+.checks { display: grid; gap: 6px; }
+.check { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 13px; }
+.check .dot { width: 20px; height: 20px; }
+.check strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); font-weight: 600; }
+.check .action { margin-top: 6px; }
+
+.test-box { border: 1px dashed var(--series-1); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.test-box .instruction { font-weight: 700; margin-bottom: 6px; }
+.progress { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; margin: 8px 0 4px; }
+.progress div { height: 100%; background: var(--series-1); transition: width .5s linear; }
+
+details { font-size: 12px; }
+summary { cursor: pointer; color: var(--text-secondary); }
+details .row { border-bottom: 1px solid var(--grid); }
+.wiring { margin-top: 6px; padding: 8px; border-radius: 6px; background: var(--surface-2); color: var(--text-secondary); }
+
+/* Sistema */
+.mini-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.mini { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.mini .note { font-size: 12px; color: var(--text-secondary); }
+
+/* Gráficos */
+.charts { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.chart-wrap { position: relative; }
+.chart-wrap canvas { width: 100%; height: 180px; display: block; }
+.tooltip {
+  position: absolute; pointer-events: none; display: none;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12); white-space: nowrap;
+}
+.axis-note { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 8px; }
+th, td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+
+.demo-flag {
+  background: var(--warning); color: #3a2a00; font-weight: 700; font-size: 12px;
+  padding: 4px 10px; border-radius: 6px; display: none;
+}
+
+@media (max-width: 900px) {
+  .flow { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); justify-self: center; }
+  .charts { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Iluminação Pública IoT</h1>
+      <div class="secondary">Poste <strong id="device">—</strong> · ligado há <span id="uptime" class="num">—</span></div>
+    </div>
+    <div class="head-meta">
+      <span class="demo-flag" id="demoFlag">DADOS SIMULADOS</span>
+      <span id="link" class="badge s-neutral"><span class="dot">…</span><span>Conectando</span></span>
+      <span id="network" class="badge s-neutral"><span class="dot">–</span><span>Rede</span></span>
+    </div>
+  </header>
+
+  <section class="panel banner s-neutral" id="banner" aria-live="polite">
+    <span class="dot big-dot s-neutral" id="bannerDot">…</span>
+    <div>
+      <h2 id="bannerTitle">Aguardando dados do poste</h2>
+      <div class="secondary" id="bannerText">Conecte-se à rede Wi-Fi do poste para ver o estado do sistema.</div>
+      <ul id="bannerActions"></ul>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-decision">
+    <h2 id="t-decision">Como a luz está sendo decidida agora</h2>
+    <p class="section-sub">Os sensores marcados como “decisão de luz” alimentam estas etapas, da esquerda para a direita.</p>
+    <div class="flow">
+      <div class="step">
+        <div class="label">1 · Está claro ou escuro?</div>
+        <div class="result" id="period">—</div>
+        <div class="scale" aria-hidden="true">
+          <div class="band" id="hystBand"></div>
+          <div class="tick" id="tickNight"></div><div class="tick-label" id="tickNightLabel"></div>
+          <div class="tick" id="tickDay"></div><div class="tick-label" id="tickDayLabel"></div>
+          <div class="marker" id="ldrMarker"></div>
+        </div>
+        <div class="row"><span>Luz ambiente (LDR)</span><span class="num" id="ambientAdc">—</span></div>
+        <div class="detail" id="periodRule">—</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="step">
+        <div class="label">2 · Tem alguém por perto?</div>
+        <div class="result" id="presence">—</div>
+        <div class="or-box">
+          <div class="sensor-line" id="lineHc"><span>Distância (HC-SR04)</span><span class="num" id="hcText">—</span></div>
+          <div class="muted" style="font-size:11px;text-align:center">OU</div>
+          <div class="sensor-line" id="lineIr"><span>Obstáculo (IR)</span><span id="irText">—</span></div>
+        </div>
+        <div class="detail" id="holdText" style="margin-top:8px">—</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="step">
+        <div class="label">3 · Modo escolhido</div>
+        <div class="result" id="mode">—</div>
+        <div class="detail" id="reason">—</div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="step">
+        <div class="label">4 · Luminárias</div>
+        <div class="result num" id="lightPct">—</div>
+        <div class="lamps" id="lamps"></div>
+        <div class="detail" id="levels">—</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-sensors">
+    <h2 id="t-sensors">Sensores</h2>
+    <p class="section-sub">
+      Cada sensor passa por três verificações: <strong>conectado</strong> (o firmware detecta o hardware no pino),
+      <strong>medindo</strong> (o sinal é coerente) e <strong>teste prático</strong> (você provoca uma reação e o sensor responde).
+    </p>
+    <div class="cards" id="sensorCards"></div>
+    <p class="muted" id="notInstalled" style="font-size:12px;margin:12px 0 0" hidden></p>
+  </section>
+
+  <section class="panel" aria-labelledby="t-history">
+    <h2 id="t-history">Histórico da iluminação (últimos 5 minutos)</h2>
+    <div class="charts">
+      <div>
+        <h3>Luz ambiente · leitura do LDR (relativa, não lux)</h3>
+        <div class="chart-wrap"><canvas id="chartLdr" aria-label="Gráfico da leitura do LDR ambiente"></canvas><div class="tooltip" id="tipLdr"></div></div>
+        <div class="axis-note"><span id="axisStart1">—</span><span>agora</span></div>
+      </div>
+      <div>
+        <h3>Intensidade das luminárias · %</h3>
+        <div class="chart-wrap"><canvas id="chartLight" aria-label="Gráfico da intensidade das luminárias"></canvas><div class="tooltip" id="tipLight"></div></div>
+        <div class="axis-note"><span id="axisStart2">—</span><span>agora</span></div>
+      </div>
+    </div>
+    <details style="margin-top:10px">
+      <summary>Ver como tabela (últimas 20 amostras)</summary>
+      <table><thead><tr><th>Horário</th><th>LDR ambiente</th><th>Período</th><th>Presença</th><th>Luminárias</th><th>Modo</th></tr></thead><tbody id="historyTable"></tbody></table>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="t-system">
+    <h2 id="t-system">Sistema</h2>
+    <p class="section-sub">Tela, luminárias, indicador e conexões.</p>
+    <div class="mini-cards" id="systemCards"></div>
+  </section>
+
+  <p class="muted" style="font-size:12px">
+    Leituras de LDR e do microfone são relativas (ADC/dB do conversor) e não equivalem a lux ou dB SPL sem calibração.
+    O ESP32 só consegue medir o LED 1, pelo LDR do poste encostado nele; os demais LEDs são confirmados por você.
+  </p>
+</main>
+
+<script>
+"use strict";
+const POLL_MS = 1000;
+const HISTORY_SECONDS = 300;
+const SPARK_SECONDS = 120;
+const DEMO = new URLSearchParams(location.search).has("demo");
+
+const HEALTH = {
+  OK:            { cls: "s-good",     icon: "✓", text: "Funcionando" },
+  WARNING:       { cls: "s-warning",  icon: "!", text: "Atenção" },
+  FAILURE:       { cls: "s-critical", icon: "✕", text: "Não conectado" },
+  WARMING_UP:    { cls: "s-serious",  icon: "◐", text: "Aquecendo" },
+  NOT_TESTED:    { cls: "s-neutral",  icon: "?", text: "Falta testar" },
+  NOT_AVAILABLE: { cls: "s-neutral",  icon: "–", text: "Desativado" },
+  VISUAL_CHECK:  { cls: "s-neutral",  icon: "◉", text: "Confirme" },
+};
+const MODE_TEXT = { DAY_OFF: "Desligado (dia)", ECONOMY: "Economia", ACTIVE: "Presença", SAFE: "Modo seguro" };
+
+const fmtN = (v, d = 0) => (v === null || v === undefined ? null : Number(v).toFixed(d).replace(".", ","));
+
+// Textos amigáveis por sensor. "main" devolve [valor, unidade, significado].
+const SENSORS = {
+  LDR_AMBIENT: {
+    title: "Luz ambiente", part: "LDR · GPIO 33", role: "Decide se é dia ou noite", lighting: true,
+    wiring: "3V3 → LDR → GPIO 33 → resistor 10 kΩ → GND",
+    instruction: "Cubra o LDR com o dedo (ou ilumine com a lanterna do celular).",
+    unit: "ADC", spark: (c) => c.data.value,
+    main: (c, d) => [c.data.value, "ADC", c.data.value === null ? "" :
+      c.data.value > d.config.day_threshold ? "claro" : c.data.value < d.config.night_threshold ? "escuro" : "penumbra"],
+    measuring: (c) => ({ ok: true, text: `Leitura estável (variação de ${fmtN(c.data.noise, 1)} ADC)` }),
+    reaction: (t) => `mudou ${fmtN(t.best)} de ${fmtN(t.target)} ADC necessários`,
+    details: (c) => [["Leitura bruta", `${c.data.raw} ADC`], ["Ruído (desvio padrão)", `${fmtN(c.data.noise, 1)} ADC`]],
+  },
+  LDR_LOCAL: {
+    title: "Luz no poste", part: "LDR · GPIO 32", role: "Encostado no LED 1: confere se ele acende", lighting: false,
+    wiring: "3V3 → LDR → GPIO 32 → resistor 10 kΩ → GND, com o LDR encostado no LED do poste 1",
+    instruction: "Cubra o LDR com o dedo (ou ilumine com a lanterna do celular).",
+    unit: "ADC", spark: (c) => c.data.value,
+    main: (c, d) => [c.data.value, "ADC", c.data.value === null ? "" :
+      c.data.value > d.config.day_threshold ? "claro" : c.data.value < d.config.night_threshold ? "escuro" : "penumbra"],
+    measuring: (c) => ({ ok: true, text: `Leitura estável (variação de ${fmtN(c.data.noise, 1)} ADC)` }),
+    reaction: (t) => `mudou ${fmtN(t.best)} de ${fmtN(t.target)} ADC necessários`,
+    details: (c) => [["Leitura bruta", `${c.data.raw} ADC`], ["Ruído (desvio padrão)", `${fmtN(c.data.noise, 1)} ADC`]],
+  },
+  ULTRASONIC: {
+    title: "Distância", part: "HC-SR04 · TRIG 5 / ECHO 18", role: "Detecta alguém à frente", lighting: true,
+    wiring: "VCC no Vin (5 V) · GND · TRIG → GPIO 5 · ECHO → divisor (1 kΩ + 2 kΩ) → GPIO 18",
+    instruction: "Coloque a mão a uns 20 cm na frente do sensor.",
+    unit: "cm", spark: (c) => c.data.distance_cm,
+    main: (c, d) => c.data.distance_cm === null ? [null, "", "nada à frente"] :
+      [fmtN(c.data.distance_cm), "cm", c.data.in_range ? "presença na faixa" : `fora da faixa (${d.config.min_distance_cm}–${d.config.max_distance_cm} cm)`],
+    measuring: (c) => ({ ok: c.data.response_pct >= 50,
+      text: `Respondeu em ${c.data.response_pct}% dos disparos · eco em ${c.data.echo_pct}%` }),
+    reaction: (t) => t.best >= 9999 ? "nenhum objeto visto ainda" : `mais perto: ${fmtN(t.best)} cm (precisa de menos de ${fmtN(t.target)} cm)`,
+    details: (c) => [["Última medição", { VALID: "eco recebido", NO_ECHO: "sem objeto", NO_RESPONSE: "sem resposta", BUSY: "ECHO ocupado" }[c.data.last] || c.data.last],
+                     ["Módulo respondeu", `${c.data.response_pct}%`], ["Com eco", `${c.data.echo_pct}%`]],
+  },
+  IR: {
+    title: "Obstáculo", part: "Sensor IR · GPIO 23", role: "Detecta alguém bem perto", lighting: true,
+    wiring: "VCC 3V3 · GND · OUT → GPIO 23 (ajuste a distância no parafuso azul)",
+    instruction: "Passe a mão na frente do sensor, a poucos centímetros.",
+    unit: "", spark: (c) => (c.link.state === "CONNECTED" ? (c.data.detected ? 1 : 0) : null),
+    main: (c) => [c.data.detected ? "Detectando" : "Livre", "", c.data.last_change_ago_ms === null ? "sem detecções ainda" : `última mudança há ${fmtDur(c.data.last_change_ago_ms)}`],
+    measuring: (c) => c.data.changes > 0 ? { ok: true, text: `Já reagiu ${c.data.changes} vez(es)` }
+                                         : { ok: null, text: "Ligado, mas ainda não detectou nada" },
+    reaction: (t) => `${fmtN(t.best)} mudança(s) detectada(s)`,
+    details: (c) => [["Mudanças desde que ligou", c.data.changes], ["Polaridade", c.data.active_low ? "LOW = detectou" : "HIGH = detectou"]],
+  },
+  DHT11: {
+    title: "Temperatura e umidade", part: "DHT11 · GPIO 4", role: "Monitora o ambiente", lighting: false,
+    wiring: "VCC 3V3 · DATA → GPIO 4 · GND (sensor sem placa, 4 pernas: resistor 10 kΩ entre DATA e 3V3; a 3ª perna fica livre)",
+    instruction: "Segure o sensor entre os dedos ou sopre de leve nele.",
+    unit: "°C", spark: (c) => c.data.temperature_c,
+    main: (c) => c.data.temperature_c === null ? [null, "", ""] :
+      [fmtN(c.data.temperature_c, 1), "°C", `${fmtN(c.data.humidity_percent)}% de umidade · sensação ${fmtN(c.data.heat_index_c, 1)} °C`],
+    measuring: (c) => ({ ok: c.data.success_pct >= 70, text: `${c.data.success_pct}% das leituras válidas` }),
+    reaction: (t) => `umidade subiu ${fmtN(t.best, 1)} de ${fmtN(t.target, 1)} pontos`,
+    details: (c) => [["Leituras válidas", `${c.data.success_pct}%`], ["Última leitura", c.data.age_ms === null ? "nenhuma" : `há ${fmtDur(c.data.age_ms)}`]],
+  },
+  MQ135: {
+    title: "Qualidade do ar", part: "MQ-135 · GPIO 32", role: "Indicador relativo de gases (não é ppm)", lighting: false,
+    wiring: "VCC 5 V · GND · AO → divisor (10k + 10k) → GPIO 32",
+    instruction: "Aproxime, sem encostar, um pouco de álcool em gel do sensor.",
+    unit: "ADC", spark: (c) => c.data.adc,
+    main: (c) => [c.data.adc, "ADC", c.data.warming ? `aquecendo · faltam ${fmtDur(c.data.warmup_left_ms)}` :
+      ({ low: "ar: baixo", medium: "ar: médio", high: "ar: alto" }[c.data.level] || "")],
+    measuring: (c) => c.data.warming ? { ok: null, text: `Aquecendo — faltam ${fmtDur(c.data.warmup_left_ms)}` }
+                                     : { ok: true, text: "Leitura estável" },
+    reaction: (t) => `mudou ${fmtN(t.best)} de ${fmtN(t.target)} ADC necessários`,
+    details: (c) => [["Leitura bruta", `${c.data.raw} ADC`]],
+  },
+  MIC: {
+    title: "Som ambiente", part: "KY-038 · AO 34 / DO 35", role: "Nível de ruído relativo", lighting: false,
+    wiring: "+ → 3V3 · G → GND · AO → GPIO 34 · DO → GPIO 35 (o trimpot azul ajusta o limiar do DO)",
+    instruction: "Bata palmas ou fale alto perto do microfone.",
+    unit: "dB", spark: (c) => c.data.dbfs,
+    main: (c) => {
+      if (c.data.dbfs === null) return [null, "", ""];
+      const above = c.data.dbfs - c.data.floor_dbfs;
+      return [fmtN(c.data.dbfs), "dB rel.", above < 4 ? "silêncio" : above < 12 ? "som moderado" : "som alto"];
+    },
+    measuring: (c) => ({ ok: true, text: `Microfone polarizado em ${c.data.bias} ADC · comparador disparou ${c.data.do_events} vez(es)` }),
+    reaction: (t) => `pico de ${fmtN(t.best)} dB acima do silêncio (precisa de ${fmtN(t.target)}) ou disparo do comparador`,
+    details: (c) => [["Pico recente", `${fmtN(c.data.peak_dbfs) ?? "—"} dB rel.`], ["Piso de ruído", `${fmtN(c.data.floor_dbfs) ?? "—"} dB rel.`],
+                     ["Variação (RMS)", `${fmtN(c.data.rms, 1) ?? "—"} ADC`], ["Nível DC da saída AO", `${c.data.bias} ADC`],
+                     ["Comparador (DO) agora", c.data.do_active ? "acima do limiar" : "abaixo do limiar"],
+                     ["Disparos do DO desde que ligou", c.data.do_events]],
+  },
+};
+const SENSOR_ORDER = ["LDR_AMBIENT", "ULTRASONIC", "IR", "LDR_LOCAL", "DHT11", "MQ135", "MIC"];
+
+// Por que o firmware acha que o sensor não está ligado
+function reasonText(code, reason) {
+  const map = {
+    floating: code === "MIC" ? "A saída AO oscila como pino solto: o KY-038 parece desconectado."
+                             : "Nenhum sinal no pino: o sensor parece desconectado.",
+    stuck_low: code === "MQ135" ? "Sem tensão na saída: módulo sem 5 V ou desligado." :
+               code === "MIC" ? "Saída AO em 0: o KY-038 está sem 3V3?" : "Leitura quase 0: o pino só enxerga o resistor até o GND. O LDR pode estar fora da fileira do GPIO, sem 3V3 (trilho cortado no meio da protoboard?) ou no escuro total.",
+    stuck_high: code === "MQ135" ? "Leitura no máximo: confira o divisor de tensão." : "Leitura no máximo: o pino recebe 3V3 direto. Falta o resistor de 10 kΩ até o GND na mesma fileira?",
+    no_response: code === "DHT11" ? "O sensor não respondeu: confira DATA e alimentação." : "O módulo não respondeu ao disparo: confira 5 V, GND e TRIG.",
+    echo_stuck: "O pino ECHO ficou preso em nível alto.",
+    intermittent: "Responde só às vezes: mau contato ou fio no pino errado.",
+  };
+  return map[reason] || "Verificando…";
+}
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+const history = [];
+const spark = {};
+const cards = {};
+let lastOk = 0;
+let latest = null;
+let hoverIndex = null;
+
+function setBadge(node, spec, label) {
+  node.className = "badge " + spec.cls;
+  node.replaceChildren(el("span", "dot", spec.icon), el("span", "", label || spec.text));
+}
+function setDot(node, spec) {
+  node.className = "dot " + spec.cls;
+  node.textContent = spec.icon;
+}
+function fmtDur(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}min` : m > 0 ? `${m}min ${s % 60}s` : `${s}s`;
+}
+const clock = (t) => new Date(t).toLocaleTimeString("pt-BR", { hour12: false });
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// ---------- Resumo no topo ----------
+
+function renderBanner(d, byCode) {
+  const actions = [];
+  for (const code of SENSOR_ORDER) {
+    const c = byCode[code], m = SENSORS[code];
+    if (c.health === "FAILURE") actions.push(`${m.title} (${m.part}): ${reasonText(code, c.link.reason)}`);
+    else if (c.health === "WARNING") actions.push(`${m.title}: ${c.link.state === "CONNECTED" ? "não reagiu ao teste prático — tente de novo." : reasonText(code, c.link.reason)}`);
+    else if (c.health === "NOT_TESTED" && code === "IR") actions.push("Obstáculo (IR): passe a mão na frente para confirmar que funciona.");
+  }
+  if (byCode.LEDS.health === "VISUAL_CHECK") actions.push("Luminárias: confirme em “Sistema” se os 4 LEDs acenderam no teste de inicialização.");
+  if (byCode.OLED.health === "FAILURE") actions.push("Tela OLED não encontrada: confira SDA (21), SCL (22), VCC e GND.");
+
+  const banner = $("banner");
+  let spec, title, text;
+  if (d.summary === "SAFE_MODE") {
+    spec = { cls: "s-critical", icon: "!" };
+    title = "Modo seguro: luzes no máximo";
+    text = d.lighting.is_night === null
+      ? "Sem leitura confiável da luz ambiente. Por segurança, o sistema não assume que é dia."
+      : !d.lighting.presence_available
+        ? "Nenhum sensor de presença foi confirmado. À noite, a luz fica no máximo até um deles funcionar."
+        : "Uma verificação essencial falhou.";
+  } else if (d.summary === "ALERTS") {
+    spec = { cls: "s-warning", icon: "!" };
+    title = `Funcionando, com ${actions.length} pendência${actions.length === 1 ? "" : "s"}`;
+    text = "A iluminação está operando normalmente. Os itens abaixo precisam de atenção.";
+  } else {
+    spec = { cls: "s-good", icon: "✓" };
+    title = "Tudo funcionando";
+    text = "Todos os sensores essenciais estão conectados e respondendo.";
+  }
+  banner.className = "panel banner " + spec.cls;
+  setDot($("bannerDot"), spec);
+  $("bannerDot").classList.add("big-dot");
+  $("bannerTitle").textContent = title;
+  $("bannerText").textContent = text;
+  $("bannerActions").replaceChildren(...actions.slice(0, 6).map((a) => el("li", "", a)));
+}
+
+// ---------- Decisão de iluminação ----------
+
+function renderDecision(d, byCode) {
+  const L = d.lighting, C = d.config;
+  const amb = byCode.LDR_AMBIENT.data, hc = byCode.ULTRASONIC, ir = byCode.IR;
+
+  $("period").textContent = L.is_night === null ? "Sem leitura" : L.is_night ? "Escuro (noite)" : "Claro (dia)";
+  $("ambientAdc").textContent = amb.value === null ? `inválida (${amb.raw})` : `${amb.value} ADC`;
+  $("periodRule").textContent =
+    `Vira dia acima de ${C.day_threshold} e noite abaixo de ${C.night_threshold}. Entre os dois, mantém o estado anterior para não piscar.`;
+
+  const pct = (v) => Math.max(0, Math.min(100, (v / 4095) * 100));
+  $("hystBand").style.left = pct(C.night_threshold) + "%";
+  $("hystBand").style.width = (pct(C.day_threshold) - pct(C.night_threshold)) + "%";
+  for (const [id, v] of [["tickNight", C.night_threshold], ["tickDay", C.day_threshold]]) {
+    $(id).style.left = pct(v) + "%";
+    $(id + "Label").style.left = pct(v) + "%";
+    $(id + "Label").textContent = v;
+  }
+  $("ldrMarker").style.left = `calc(${pct(amb.raw)}% - 2px)`;
+
+  $("presence").textContent = L.presence_hc || L.presence_ir ? "Sim" : "Ninguém";
+  $("lineHc").classList.toggle("hit", L.presence_hc);
+  $("lineIr").classList.toggle("hit", L.presence_ir);
+  $("hcText").textContent = hc.link.state !== "CONNECTED" ? "não conectado"
+    : hc.data.distance_cm === null ? "nada à frente" : `${fmtN(hc.data.distance_cm)} cm${L.presence_hc ? " · presença" : ""}`;
+  $("irText").textContent = ir.health === "NOT_AVAILABLE" ? "não instalado"
+    : ir.link.state !== "CONNECTED" ? "não conectado"
+    : !L.ir_usable ? "falta testar" : ir.data.detected ? "detectando" : "livre";
+  $("holdText").textContent = !L.presence_available
+    ? "Nenhum dos dois foi confirmado ainda: à noite a luz fica no máximo por segurança."
+    : L.hold_remaining_ms > 0
+      ? `Mantendo a luz alta por mais ${Math.ceil(L.hold_remaining_ms / 1000)} s após a última detecção.`
+      : `Presença conta entre ${C.min_distance_cm} e ${C.max_distance_cm} cm do HC-SR04.`;
+
+  $("mode").textContent = MODE_TEXT[L.mode] || L.mode;
+  const anyNow = L.presence_hc || L.presence_ir;
+  $("reason").textContent = {
+    DAY_OFF: "Está claro: luminárias apagadas para economizar energia.",
+    ECONOMY: `Está escuro e não há ninguém: luz reduzida a ${C.standby_percent}%.`,
+    ACTIVE: anyNow ? "Presença detectada: luz no máximo." : "Presença recente: mantendo a luz no máximo.",
+    SAFE: L.is_night === null ? "Sem leitura confiável da luz ambiente: luz no máximo por segurança."
+                              : "Nenhum sensor de presença confirmado: luz no máximo por segurança.",
+  }[L.mode] || "";
+
+  $("lightPct").textContent = L.zones[0] + "%";
+  const lamps = $("lamps");
+  if (lamps.children.length !== L.zones.length) {
+    lamps.replaceChildren(...L.zones.map((_, i) => {
+      const lamp = el("div", "lamp");
+      lamp.append(el("div", "bulb"), document.createTextNode(`L${i + 1}`));
+      return lamp;
+    }));
+  }
+  L.zones.forEach((z, i) => {
+    const bulb = lamps.children[i].firstChild;
+    bulb.style.background = z > 0 ? `color-mix(in srgb, var(--lamp) ${30 + z * 0.7}%, var(--lamp-off))` : "var(--lamp-off)";
+    bulb.style.boxShadow = z > 0 ? `0 0 ${4 + z / 5}px var(--lamp)` : "none";
+    bulb.title = `Luminária ${i + 1}: ${z}%`;
+  });
+  $("levels").textContent = `Dia 0% · noite sem ninguém ${C.standby_percent}% · com presença ${C.active_percent}% por ${C.hold_ms / 1000} s`;
+}
+
+// ---------- Cartões de sensor ----------
+
+function createSensorCard(code) {
+  const m = SENSORS[code];
+  const card = el("article", "card" + (m.lighting ? " lighting-input" : ""));
+  const head = el("div", "card-head");
+  const titles = el("div");
+  titles.append(el("h3", "", m.title), el("div", "role", `${m.role} · ${m.part}`));
+  if (m.lighting) titles.append(el("div", "tag", "decisão de luz"));
+  const badge = el("span", "badge");
+  head.append(titles, badge);
+
+  const reading = el("div", "reading");
+  const value = el("span", "value num"), meaning = el("span", "meaning");
+  reading.append(value, meaning);
+
+  const sparkWrap = el("div", "spark-wrap");
+  const canvas = el("canvas");
+  canvas.setAttribute("aria-label", `Últimos 2 minutos de ${m.title}`);
+  const sparkNote = el("div", "spark-note");
+  const sparkRange = el("span"), sparkSpan = el("span", "", "últimos 2 min");
+  sparkNote.append(sparkRange, sparkSpan);
+  sparkWrap.append(canvas, sparkNote);
+
+  const checks = el("div", "checks");
+  const steps = ["Conectado", "Medindo", "Teste prático"].map((label) => {
+    const row = el("div", "check");
+    const dot = el("span", "dot s-neutral", "…");
+    const body = el("div");
+    const text = el("span");
+    body.append(el("strong", "", label), text);
+    row.append(dot, body);
+    checks.append(row);
+    return { dot, text, body };
+  });
+  const testButton = el("button", "ghost action", "Fazer teste prático");
+  testButton.addEventListener("click", () => startTest(code));
+  steps[2].body.append(testButton);
+
+  const testBox = el("div", "test-box");
+  testBox.hidden = true;
+  const instruction = el("div", "instruction", m.instruction);
+  const progress = el("div", "progress");
+  const bar = el("div");
+  progress.append(bar);
+  const live = el("div", "secondary");
+  testBox.append(el("div", "muted", "Teste em andamento"), instruction, progress, live);
+
+  const details = el("details");
+  details.append(el("summary", "", "Detalhes técnicos e ligação"));
+  const detailRows = el("div");
+  const wiring = el("div", "wiring", `Ligação: ${m.wiring}`);
+  details.append(detailRows, wiring);
+
+  card.append(head, reading, sparkWrap, testBox, checks, details);
+  $("sensorCards").append(card);
+  cards[code] = { badge, value, meaning, reading, canvas, sparkRange, steps, testButton, testBox, bar, live, detailRows, details };
+}
+
+function updateSensorCard(code, c, d, testRunning) {
+  const m = SENSORS[code], ui = cards[code];
+  setBadge(ui.badge, HEALTH[c.health] || HEALTH.NOT_TESTED);
+
+  const connected = c.link.state === "CONNECTED";
+  const [v, unit, meaning] = connected ? m.main(c, d) : [null, "", ""];
+  ui.reading.classList.toggle("off", v === null);
+  ui.value.textContent = v === null ? "—" : `${v}${unit ? " " + unit : ""}`;
+  ui.meaning.textContent = connected ? meaning : "sem sinal do sensor";
+
+  // Passo 1: conexão física
+  const s1 = ui.steps[0];
+  if (c.link.state === "CONNECTED") { setDot(s1.dot, HEALTH.OK); s1.text.textContent = "Hardware detectado no pino."; }
+  else if (c.link.state === "UNKNOWN") { setDot(s1.dot, HEALTH.NOT_TESTED); s1.text.textContent = "Verificando…"; }
+  else { setDot(s1.dot, c.link.state === "SUSPECT" ? HEALTH.WARNING : HEALTH.FAILURE); s1.text.textContent = reasonText(code, c.link.reason); }
+
+  // Passo 2: sinal coerente
+  const s2 = ui.steps[1];
+  if (!connected) { setDot(s2.dot, HEALTH.NOT_AVAILABLE); s2.text.textContent = "Aguardando conexão."; }
+  else {
+    const r = m.measuring(c);
+    setDot(s2.dot, r.ok === true ? HEALTH.OK : r.ok === false ? HEALTH.WARNING : HEALTH.NOT_TESTED);
+    s2.text.textContent = r.text;
+  }
+
+  // Passo 3: teste prático
+  const t = c.test, s3 = ui.steps[2];
+  ui.testBox.hidden = t.state !== "RUNNING";
+  if (t.state === "RUNNING") {
+    setDot(s3.dot, { cls: "s-neutral", icon: "…" });
+    s3.text.textContent = "Em andamento — siga a instrução acima.";
+    ui.bar.style.width = `${(t.remaining_ms / t.window_ms) * 100}%`;
+    ui.live.textContent = `${m.reaction(t)} · ${Math.ceil(t.remaining_ms / 1000)} s restantes`;
+  } else if (t.state === "PASSED") {
+    setDot(s3.dot, HEALTH.OK);
+    s3.text.textContent = `Passou${t.finished_ago_ms !== null ? " há " + fmtDur(t.finished_ago_ms) : ""}: o sensor reagiu ao estímulo.`;
+  } else if (t.state === "FAILED") {
+    setDot(s3.dot, HEALTH.WARNING);
+    s3.text.textContent = `Não reagiu no tempo (${m.reaction(t)}). Tente de novo.`;
+  } else {
+    setDot(s3.dot, HEALTH.NOT_TESTED);
+    s3.text.textContent = connected ? "Ainda não feito." : "Disponível quando o sensor estiver conectado.";
+  }
+  ui.testButton.hidden = t.state === "RUNNING";
+  ui.testButton.disabled = !connected || testRunning;
+  ui.testButton.textContent = t.state === "PASSED" ? "Testar de novo" : "Fazer teste prático";
+
+  // Detalhes técnicos; a ligação abre sozinha se o sensor não for detectado
+  const rows = connected ? m.details(c) : [];
+  rows.push(["Estado do firmware", c.note]);
+  ui.detailRows.replaceChildren(...rows.map(([k, val]) => {
+    const row = el("div", "row");
+    row.append(el("span", "", k), el("span", "num", String(val)));
+    return row;
+  }));
+  if (!connected && !ui.details.dataset.touched) ui.details.open = true;
+
+  // Mini-gráfico
+  const series = spark[code] || (spark[code] = []);
+  series.push({ t: Date.now(), v: connected ? m.spark(c) : null });
+  const cutoff = Date.now() - SPARK_SECONDS * 1000;
+  while (series.length && series[0].t < cutoff) series.shift();
+  drawSpark(ui.canvas, series, code === "IR");
+  const vals = series.map((p) => p.v).filter((x) => x !== null && x !== undefined);
+  ui.sparkRange.textContent = !vals.length ? "sem dados" : code === "IR"
+    ? `${vals.filter((x) => x === 1).length} s detectando`
+    : `mín ${fmtN(Math.min(...vals), 1)} · máx ${fmtN(Math.max(...vals), 1)} ${m.unit}`;
+}
+
+function drawSpark(canvas, series, step) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w) return;
+  if (canvas.width !== w * dpr || canvas.height !== h * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = cssVar("--grid");
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, h - 1); ctx.lineTo(w, h - 1); ctx.stroke();
+
+  const vals = series.map((p) => p.v).filter((v) => v !== null && v !== undefined);
+  if (!vals.length) return;
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (step) { lo = 0; hi = 1; }
+  if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+  const now = Date.now();
+  const x = (t) => w - ((now - t) / (SPARK_SECONDS * 1000)) * w;
+  const y = (v) => 4 + (h - 8) * (1 - (v - lo) / (hi - lo));
+  ctx.strokeStyle = cssVar("--series-1");
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  let drawing = false, prevY = 0;
+  for (const p of series) {
+    if (p.v === null || p.v === undefined) { drawing = false; continue; }
+    if (!drawing) { ctx.moveTo(x(p.t), y(p.v)); drawing = true; }
+    else { if (step) ctx.lineTo(x(p.t), prevY); ctx.lineTo(x(p.t), y(p.v)); }
+    prevY = y(p.v);
+  }
+  ctx.stroke();
+}
+
+async function startTest(code) {
+  if (DEMO) { demoStartTest(code); return; }
+  await fetch(`/api/test?c=${encodeURIComponent(code)}`, { method: "POST" }).catch(() => {});
+}
+async function confirmVisual(code) {
+  if (DEMO) { demo.confirmed[code] = Date.now(); return; }
+  await fetch(`/api/confirm?c=${encodeURIComponent(code)}`, { method: "POST" }).catch(() => {});
+}
+
+// ---------- Sistema ----------
+
+const SYSTEM = {
+  OLED: { title: "Tela OLED", text: (c) => c.health === "OK" ? `Encontrada no I2C (${c.note.replace("endereco ", "")})` : "Não encontrada: confira SDA 21, SCL 22, VCC e GND." },
+  LEDS: { title: "Luminárias (4 LEDs)", confirm: "Vi os 4 LEDs acenderem",
+          text: (c) => {
+            if (c.health === "OK") return "Confirmado por você.";
+            const delta = c.data.lamp1_optical_delta;
+            const optical = delta === null ? "" : delta >= c.data.lamp1_optical_min
+              ? ` O LED 1 foi confirmado por medição: o LDR do poste subiu ${delta} ADC quando ele acendeu.`
+              : ` O LDR do poste não percebeu o LED 1 acender (variação de ${delta} ADC): ele está encostado no LED?`;
+            return "No boot, os LEDs acendem um por vez (GPIO 25, 26, 27 e 13). Você viu os quatro acenderem?" + optical;
+          } },
+  STATUS_LED: { title: "LED de status (GPIO 19)", confirm: "O LED de status está aceso",
+         text: (c) => c.health === "OK" ? "Confirmado por você." : "Aceso = firmware rodando. Confirme olhando o LED." },
+  WIFI: { title: "Wi-Fi do roteador", text: (c, d) => !d.network.wifi_configured ? "Não configurado: o poste funciona em modo local." : d.network.wifi ? "Conectado." : "Desconectado, tentando de novo." },
+  MQTT: { title: "MQTT (telemetria)", text: (c, d) => !d.network.mqtt_configured ? "Desativado." : d.network.mqtt ? "Publicando no broker." : "Broker indisponível." },
+};
+const systemCards = {};
+
+function renderSystem(byCode, d) {
+  for (const code of Object.keys(SYSTEM)) {
+    const meta = SYSTEM[code], c = byCode[code];
+    if (!systemCards[code]) {
+      const card = el("div", "mini");
+      const head = el("div", "card-head");
+      const badge = el("span", "badge");
+      head.append(el("h3", "", meta.title), badge);
+      const note = el("div", "note");
+      card.append(head, note);
+      let button = null;
+      if (meta.confirm) {
+        button = el("button", "ghost", meta.confirm);
+        button.addEventListener("click", () => confirmVisual(code));
+        card.append(button);
+      }
+      $("systemCards").append(card);
+      systemCards[code] = { badge, note, button };
+    }
+    const ui = systemCards[code];
+    setBadge(ui.badge, HEALTH[c.health] || HEALTH.NOT_TESTED);
+    ui.note.textContent = meta.text(c, d);
+    if (ui.button) ui.button.hidden = c.health === "OK";
+  }
+}
+
+// ---------- Gráficos grandes (um eixo por gráfico) ----------
+
+function drawChart(canvas, tip, opts) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w * dpr || canvas.height !== h * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { l: 40, r: 8, t: 10, b: 10 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const y = (v) => pad.t + ph - ((v - opts.min) / (opts.max - opts.min)) * ph;
+  const now = history.length ? history[history.length - 1].t : Date.now();
+  const x = (t) => pad.l + pw - ((now - t) / (HISTORY_SECONDS * 1000)) * pw;
+
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillStyle = cssVar("--text-muted");
+  ctx.strokeStyle = cssVar("--grid");
+  ctx.lineWidth = 1;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (const v of opts.ticks) {
+    ctx.beginPath(); ctx.moveTo(pad.l, y(v)); ctx.lineTo(w - pad.r, y(v)); ctx.stroke();
+    ctx.fillText(v, pad.l - 6, y(v));
+  }
+  for (const th of opts.thresholds || []) {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = cssVar("--text-muted");
+    ctx.beginPath(); ctx.moveTo(pad.l, y(th.v)); ctx.lineTo(w - pad.r, y(th.v)); ctx.stroke();
+    ctx.restore();
+    ctx.textAlign = "left";
+    ctx.textBaseline = th.above ? "bottom" : "top";
+    ctx.fillStyle = cssVar("--text-secondary");
+    ctx.fillText(th.label, pad.l + 4, y(th.v) + (th.above ? -2 : 2));
+  }
+
+  const color = cssVar(opts.color);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  let drawing = false;
+  for (const p of history) {
+    const v = opts.value(p);
+    if (v === null || v === undefined) { drawing = false; continue; }
+    if (!drawing) { ctx.moveTo(x(p.t), y(v)); drawing = true; }
+    else ctx.lineTo(x(p.t), y(v));
+  }
+  ctx.stroke();
+
+  tip.style.display = "none";
+  if (hoverIndex !== null && history[hoverIndex]) {
+    const p = history[hoverIndex];
+    const v = opts.value(p);
+    const px = x(p.t);
+    ctx.strokeStyle = cssVar("--text-muted");
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, pad.t + ph); ctx.stroke();
+    if (v !== null && v !== undefined) {
+      ctx.fillStyle = color;
+      ctx.strokeStyle = cssVar("--surface-1");
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, y(v), 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    tip.textContent = `${clock(p.t)} · ${opts.tooltip(p)}`;
+    tip.style.display = "block";
+    tip.style.left = Math.max(4, Math.min(px + 10, w - tip.offsetWidth - 4)) + "px";
+    tip.style.top = "4px";
+  }
+}
+
+function renderCharts() {
+  const c = latest ? latest.config : { day_threshold: 2200, night_threshold: 1800 };
+  drawChart($("chartLdr"), $("tipLdr"), {
+    min: 0, max: 4095, ticks: [0, 1000, 2000, 3000, 4000], color: "--series-1",
+    value: (p) => p.ambient,
+    thresholds: [
+      { v: c.day_threshold, label: `vira dia > ${c.day_threshold}`, above: true },
+      { v: c.night_threshold, label: `vira noite < ${c.night_threshold}`, above: false },
+    ],
+    tooltip: (p) => `LDR ${p.ambient ?? "sem leitura"} · ${p.period}`,
+  });
+  drawChart($("chartLight"), $("tipLight"), {
+    min: 0, max: 100, ticks: [0, 25, 50, 75, 100], color: "--series-2",
+    value: (p) => p.light,
+    tooltip: (p) => `${p.light}% · ${MODE_TEXT[p.mode] || p.mode}${p.presence ? " · presença" : ""}`,
+  });
+  const span = history.length ? history[history.length - 1].t - history[0].t : 0;
+  $("axisStart1").textContent = $("axisStart2").textContent = `-${fmtDur(span)}`;
+}
+
+function attachHover(canvas) {
+  canvas.addEventListener("mousemove", (ev) => {
+    if (!history.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const pw = rect.width - 48;
+    const now = history[history.length - 1].t;
+    const t = now - ((rect.width - 8 - (ev.clientX - rect.left)) / pw) * HISTORY_SECONDS * 1000;
+    let best = 0;
+    for (let i = 1; i < history.length; i++) if (Math.abs(history[i].t - t) < Math.abs(history[best].t - t)) best = i;
+    hoverIndex = best;
+    renderCharts();
+  });
+  canvas.addEventListener("mouseleave", () => { hoverIndex = null; renderCharts(); });
+}
+attachHover($("chartLdr"));
+attachHover($("chartLight"));
+window.addEventListener("resize", renderCharts);
+
+function renderTable() {
+  $("historyTable").replaceChildren(...history.slice(-20).reverse().map((p) => {
+    const tr = el("tr");
+    for (const v of [clock(p.t), p.ambient ?? "—", p.period, p.presence ? "sim" : "não", `${p.light}%`, MODE_TEXT[p.mode] || p.mode]) {
+      tr.append(el("td", "", String(v)));
+    }
+    return tr;
+  }));
+}
+
+// ---------- Atualização ----------
+
+function render(d) {
+  latest = d;
+  const byCode = Object.fromEntries(d.components.map((c) => [c.code, c]));
+  $("device").textContent = d.device;
+  $("uptime").textContent = fmtDur(d.uptime_ms);
+
+  const N = d.network;
+  if (!N.wifi_configured) setBadge($("network"), HEALTH.NOT_AVAILABLE, "Modo local");
+  else if (N.wifi) setBadge($("network"), HEALTH.OK, N.mqtt ? "Wi-Fi + MQTT" : "Wi-Fi conectado");
+  else setBadge($("network"), HEALTH.WARNING, "Wi-Fi offline");
+
+  renderBanner(d, byCode);
+  renderDecision(d, byCode);
+
+  const testRunning = d.components.some((c) => c.test.state === "RUNNING");
+  const missing = [];
+  for (const code of SENSOR_ORDER) {
+    // Sensores fora desta montagem não ganham cartão, só uma menção
+    if (byCode[code].health === "NOT_AVAILABLE") { missing.push(SENSORS[code].title + ` (${SENSORS[code].part.split(" ·")[0]})`); continue; }
+    if (!cards[code]) createSensorCard(code);
+    updateSensorCard(code, byCode[code], d, testRunning);
+  }
+  $("notInstalled").hidden = !missing.length;
+  $("notInstalled").textContent = `Não instalados nesta montagem: ${missing.join(", ")}. Para usar, habilite em AppConfig.h e defina os pinos em PinMap.h.`;
+  renderSystem(byCode, d);
+
+  history.push({
+    t: Date.now(),
+    ambient: byCode.LDR_AMBIENT.data.value,
+    period: d.lighting.is_night === null ? "sem leitura" : d.lighting.is_night ? "noite" : "dia",
+    presence: d.lighting.presence_hc || d.lighting.presence_ir,
+    light: d.lighting.zones[0],
+    mode: d.lighting.mode,
+  });
+  const cutoff = Date.now() - HISTORY_SECONDS * 1000;
+  while (history.length && history[0].t < cutoff) history.shift();
+  renderCharts();
+  renderTable();
+}
+
+async function poll() {
+  try {
+    const d = DEMO ? demoState() : await fetchState();
+    lastOk = Date.now();
+    render(d);
+  } catch (e) {
+    // Mantém a última leitura na tela; o selo de conexão indica o problema
+  }
+  const age = Date.now() - lastOk;
+  if (!lastOk) setBadge($("link"), HEALTH.NOT_TESTED, "Conectando ao poste");
+  else if (age < 3 * POLL_MS) setBadge($("link"), HEALTH.OK, DEMO ? "Simulação" : "Ao vivo");
+  else setBadge($("link"), { cls: "s-critical", icon: "✕" }, `Sem resposta há ${fmtDur(age)}`);
+  setTimeout(poll, POLL_MS);
+}
+
+async function fetchState() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch("/api/state", { signal: ctrl.signal, cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+document.addEventListener("toggle", (ev) => { if (ev.target.tagName === "DETAILS") ev.target.dataset.touched = "1"; }, true);
+
+// ---------- Simulação (somente com ?demo na URL, para ver o painel sem o ESP32) ----------
+
+const demo = { t0: Date.now(), hold: 0, tests: {}, confirmed: {}, irChanges: 0, lastIr: false };
+function demoStartTest(code) { demo.tests[code] = { start: Date.now() }; }
+function demoState() {
+  const now = Date.now(), s = (now - demo.t0) / 1000;
+  const ambient = Math.round(2000 + 900 * Math.sin(s / 25));
+  demo.night = ambient > 2200 ? false : ambient < 1800 ? true : (demo.night ?? ambient < 2000);
+  const dist = Math.floor(s / 7) % 3 === 0 ? 40 + 10 * Math.sin(s) : null;
+  const presenceHc = dist !== null;
+  if (presenceHc) demo.hold = now;
+  const holdLeft = Math.max(0, 10000 - (now - demo.hold));
+  const mode = !demo.night ? "DAY_OFF" : presenceHc || holdLeft > 0 ? "ACTIVE" : "ECONOMY";
+  const pct = { DAY_OFF: 0, ECONOMY: 25, ACTIVE: 100 }[mode];
+  const warmLeft = Math.max(0, 60000 - (now - demo.t0));
+
+  const test = (code, windowMs, best, target) => {
+    const t = demo.tests[code];
+    const base = { available: true, confirmable: false, window_ms: windowMs, baseline: 0, best: 0, target, remaining_ms: 0, finished_ago_ms: null, state: "IDLE" };
+    if (!t) return base;
+    const el = now - t.start;
+    if (el < 4000) return { ...base, state: "RUNNING", remaining_ms: windowMs - el, best: best * el / 4000 };
+    return { ...base, state: "PASSED", best, finished_ago_ms: el - 4000 };
+  };
+  const health = (code, connected, okHealth) => connected ? (demo.tests[code] && now - demo.tests[code].start > 4000 ? "OK" : okHealth) : "FAILURE";
+  const comp = (code, h, note, link, data, t) => ({
+    code, name: code, health: h, label: h, note, alert: ["WARNING", "FAILURE", "NOT_TESTED"].includes(h),
+    link, data, test: t || { available: false, confirmable: ["LEDS", "STATUS_LED"].includes(code), state: "IDLE", window_ms: 0, remaining_ms: 0, best: 0, target: 0, finished_ago_ms: null },
+  });
+  const ok = { state: "CONNECTED", reason: "none" };
+  const components = [
+    comp("OLED", "OK", "endereco 0x3C", null, {}),
+    comp("DHT11", health("DHT11", true, "OK"), "respondendo (100% das leituras)", ok,
+      { temperature_c: 25.4, humidity_percent: 61, heat_index_c: 25.9, success_pct: 100, age_ms: 800 }, test("DHT11", 45000, 2.4, 2)),
+    comp("LDR_AMBIENT", health("LDR_AMBIENT", true, "OK"), "conectado, sinal estavel", ok,
+      { value: ambient, raw: ambient, noise: 3.2 }, test("LDR_AMBIENT", 15000, 620, 500)),
+    comp("LDR_LOCAL", health("LDR_LOCAL", true, "OK"), "conectado, sinal estavel", ok,
+      { value: 2900, raw: 2900, noise: 2.1 }, test("LDR_LOCAL", 15000, 900, 725)),
+    comp("ULTRASONIC", health("ULTRASONIC", true, "OK"), "modulo responde", ok,
+      { distance_cm: dist, last: dist ? "VALID" : "NO_ECHO", echo_pct: 34, response_pct: 100, in_range: presenceHc }, test("ULTRASONIC", 15000, 18, 60)),
+    comp("IR", "NOT_AVAILABLE", "nao instalado nesta montagem", { state: "UNKNOWN", reason: "none" },
+      { detected: false, changes: 0, last_change_ago_ms: null, active_low: true }),
+    comp("MIC", health("MIC", true, "OK"), "ouvindo", ok,
+      { rms: 3.1, dbfs: -62 + 6 * Math.random(), peak_dbfs: -55, floor_dbfs: -64, bias: 1840, do_events: 3, do_active: false }, test("MIC", 15000, 14, 10)),
+    comp("MQ135", "NOT_AVAILABLE", "nao instalado nesta montagem", { state: "UNKNOWN", reason: "none" },
+      { adc: null, raw: 0, warming: false, warmup_left_ms: 0, level: null }),
+    comp("LEDS", demo.confirmed.LEDS ? "OK" : "VISUAL_CHECK", "", null, { zones: [pct, pct, pct, pct], lamp1_optical_delta: 640, lamp1_optical_min: 150 }),
+    comp("STATUS_LED", demo.confirmed.STATUS_LED ? "OK" : "VISUAL_CHECK", "", null, {}),
+    comp("WIFI", "NOT_AVAILABLE", "sem credenciais", null, {}),
+    comp("MQTT", "NOT_AVAILABLE", "desabilitado", null, {}),
+  ];
+  return {
+    device: "poste-01 (demo)", uptime_ms: now - demo.t0 + 60000, summary: "ALERTS",
+    network: { wifi_configured: false, wifi: false, mqtt_configured: false, mqtt: false },
+    lighting: { mode, is_night: demo.night, target_percent: pct, zones: [pct, pct, pct, pct], presence_hc: presenceHc, presence_ir: false,
+                presence_available: true, hc_usable: true, ir_usable: false, hold_remaining_ms: mode === "ACTIVE" ? holdLeft : 0, reason: "" },
+    config: { day_threshold: 2200, night_threshold: 1800, standby_percent: 25, active_percent: 100, hold_ms: 10000,
+              min_distance_cm: 5, max_distance_cm: 120, mq135_medium: 1500, mq135_high: 2500 },
+    components,
+  };
+}
+
+if (DEMO) $("demoFlag").style.display = "inline-block";
+poll();
+</script>
+</body>
+</html>
