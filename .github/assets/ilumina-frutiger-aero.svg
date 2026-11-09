@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="520" viewBox="0 0 1500 520" role="img" aria-label="Ilumina — iluminação pública inteligente com ESP32 e IoT. Banner Frutiger Aero com céu azul, colinas verdes e luminária conectada.">
+<defs>
+  <linearGradient id="sky" x1="0" x2="0.35" y1="0" y2="1"><stop stop-color="#28A9EC"/><stop offset=".46" stop-color="#83DFFE"/><stop offset="1" stop-color="#DEF9F7"/></linearGradient>
+  <radialGradient id="aura"><stop stop-color="#FFFCE0" stop-opacity=".98"/><stop offset=".27" stop-color="#F6FFF4" stop-opacity=".7"/><stop offset="1" stop-color="#DBF9FC" stop-opacity="0"/></radialGradient>
+  <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#A6E866"/><stop offset=".45" stop-color="#51C879"/><stop offset="1" stop-color="#08A8A1"/></linearGradient>
+  <linearGradient id="hillBack" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#DCF8A3"/><stop offset="1" stop-color="#74D6A7"/></linearGradient>
+  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF" stop-opacity=".8"/><stop offset=".38" stop-color="#E6FEFF" stop-opacity=".48"/><stop offset="1" stop-color="#B9EFFF" stop-opacity=".27"/></linearGradient>
+  <linearGradient id="border" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF" stop-opacity=".95"/><stop offset="1" stop-color="#A4E9FF" stop-opacity=".5"/></linearGradient>
+  <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#357C9D"/><stop offset=".3" stop-color="#E7FAFF"/><stop offset=".55" stop-color="#81C8D9"/><stop offset="1" stop-color="#3078A0"/></linearGradient>
+  <linearGradient id="badge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FEFFFF" stop-opacity=".87"/><stop offset="1" stop-color="#EBFFFF" stop-opacity=".28"/></linearGradient>
+  <radialGradient id="bubble" cx=".28" cy=".2" r=".9"><stop stop-color="#FFFFFF" stop-opacity=".83"/><stop offset=".25" stop-color="#E6FFFF" stop-opacity=".35"/><stop offset=".66" stop-color="#8BE6F4" stop-opacity=".07"/><stop offset="1" stop-color="#FFFFFF" stop-opacity=".36"/></radialGradient>
+  <linearGradient id="text" x1="0" y1="0" x2=".5" y2="1"><stop stop-color="#063C65"/><stop offset="1" stop-color="#087397"/></linearGradient>
+  <filter id="softBlur"><feGaussianBlur stdDeviation="18"/></filter>
+  <filter id="glow"><feGaussianBlur stdDeviation="7"/></filter>
+  <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#12639B" flood-opacity=".2"/></filter>
+  <filter id="textShadow"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#FFFFFF" flood-opacity=".35"/></filter>
+  <clipPath id="frame"><rect width="1500" height="520" rx="0"/></clipPath>
+</defs>
+<g clip-path="url(#frame)">
+  <rect width="1500" height="520" fill="url(#sky)"/>
+  <circle cx="1208" cy="138" r="280" fill="url(#aura)" opacity=".94"/>
+  <circle cx="153" cy="50" r="240" fill="#FFFFFF" opacity=".11" filter="url(#softBlur)"/>
+  <path d="M0 260C204 216 292 286 490 245S886 193 1100 219s271 14 400-33v220H0Z" fill="#E9FCFE" opacity=".27"/>
+  <!-- Soft aero clouds -->
+  <g opacity=".6" fill="#FFFFFF" filter="url(#softBlur)">
+    <ellipse cx="1181" cy="91" rx="182" ry="31"/><ellipse cx="1062" cy="104" rx="71" ry="30"/><ellipse cx="1368" cy="117" rx="103" ry="26"/>
+    <ellipse cx="255" cy="76" rx="124" ry="20"/><ellipse cx="350" cy="67" rx="63" ry="24"/>
+  </g>
+  <path d="M0 420C170 353 295 366 438 392c155 28 255 17 405-30s300-27 443 0 168 20 214-4v162H0Z" fill="url(#hillBack)"/>
+  <path d="M0 466C155 425 292 425 426 451s236 27 387-16 313-35 460-13 176 22 227 1v97H0Z" fill="url(#hill)"/>
+  <path d="M0 484C210 463 324 479 490 490s275-13 437-29 380 8 573 1" stroke="#DAFFD9" stroke-width="7" opacity=".4" fill="none"/>
+  <!-- Refracted aero bubbles -->
+  <g>
+    <circle cx="752" cy="95" r="72" fill="url(#bubble)" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="2"/>
+    <path d="M715 71c11-19 31-25 52-19" fill="none" stroke="#FFFFFF" stroke-opacity=".8" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="1410" cy="310" r="54" fill="url(#bubble)" stroke="#FFFFFF" stroke-opacity=".75" stroke-width="2"/>
+    <ellipse cx="1392" cy="288" rx="15" ry="8" transform="rotate(-30 1392 288)" fill="#FFFFFF" opacity=".52"/>
+    <circle cx="843" cy="313" r="20" fill="url(#bubble)" stroke="#FFF" stroke-opacity=".9"/>
+    <circle cx="96" cy="373" r="11" fill="#ECFFFF" opacity=".55"/>
+  </g>
+  <!-- Connected lamp -->
+  <g opacity=".25" stroke="#F9FFFF" stroke-width="2" fill="none">
+    <circle cx="1160" cy="211" r="88" stroke-dasharray="3 13"/>
+    <circle cx="1160" cy="211" r="124" stroke-dasharray="3 21"/>
+    <circle cx="1160" cy="211" r="160" stroke-dasharray="2 22"/>
+  </g>
+  <g filter="url(#shadow)">
+    <path d="M1213 485V224q0-59-61-59h-84" stroke="#2D819E" stroke-width="21" stroke-linecap="round" fill="none"/>
+    <path d="M1212 484V224q0-59-61-59h-83" stroke="url(#metal)" stroke-width="14" stroke-linecap="round" fill="none"/>
+    <path d="M1208 470V228q0-54-56-54h-88" stroke="#D8FAFF" stroke-width="3" opacity=".7" stroke-linecap="round" fill="none"/>
+    <path d="M1030 161h69l-9 28h-54Z" fill="#2C7195" stroke="#E6FDFF" stroke-width="3"/>
+    <path d="M1037 184h53l-8 10h-36Z" fill="#ECFFFF"/>
+    <ellipse cx="1063" cy="198" rx="67" ry="25" fill="#EBFFF2" filter="url(#glow)" opacity=".89"/>
+    <path d="M1043 198l-86 239h213l-86-239Z" fill="#FAFFF1" opacity=".11"/>
+  </g>
+  <!-- Floating sensor nodes -->
+  <g stroke="#E7FEFF" stroke-width="2">
+    <path d="M1192 125l-28-29-61 5" fill="none" stroke-dasharray="5 7" opacity=".7"/>
+    <circle cx="1192" cy="125" r="7" fill="#B3F47E"/>
+    <circle cx="1103" cy="101" r="6" fill="#FFFFFF"/>
+    <circle cx="1307" cy="215" r="9" fill="#C5F89C"/>
+    <path d="M1239 209h59" fill="none" stroke-dasharray="5 8"/>
+  </g>
+  <!-- Main typography, unobstructed against sky -->
+  <g font-family="'Trebuchet MS','Segoe UI',Arial,sans-serif">
+    <rect x="100" y="95" width="330" height="41" rx="20.5" fill="url(#badge)" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="1.5"/>
+    <circle cx="124" cy="116" r="7" fill="#5BC87D"/><circle cx="122" cy="113" r="2.3" fill="#F5FFFA"/>
+    <text x="143" y="121" font-size="17" font-weight="700" letter-spacing="2.5" fill="#14658B">SMART CITY · OPEN SOURCE</text>
+    <text x="93" y="262" fill="url(#text)" font-size="124" font-weight="800" letter-spacing="-7" filter="url(#textShadow)">ilumina</text>
+    <text x="104" y="315" font-size="35" font-weight="700" fill="#07577D">A cidade brilha de forma inteligente.</text>
+    <text x="105" y="354" font-size="24" font-weight="500" fill="#226D8D">Iluminação pública adaptativa com ESP32 + IoT</text>
+    <g transform="translate(104 384)">
+      <rect width="535" height="39" rx="19.5" fill="#FFFFFF" fill-opacity=".42" stroke="#FFFFFF" stroke-opacity=".7"/>
+      <circle cx="21" cy="20" r="5" fill="#2DBA78"/>
+      <text x="39" y="26" fill="#0E6581" font-size="15" font-weight="700" letter-spacing="1.15">SENSORES</text>
+      <circle cx="170" cy="20" r="3" fill="#4F9DAC"/>
+      <text x="189" y="26" fill="#0E6581" font-size="15" font-weight="700" letter-spacing="1.15">AUTOMAÇÃO</text>
+      <circle cx="350" cy="20" r="3" fill="#4F9DAC"/>
+      <text x="369" y="26" fill="#0E6581" font-size="15" font-weight="700" letter-spacing="1.15">MONITORAMENTO</text>
+    </g>
+  </g>
+  <!-- Glass IoT feedback tile -->
+  <g filter="url(#shadow)" transform="translate(811 267)">
+    <rect width="266" height="150" rx="24" fill="url(#panel)" stroke="url(#border)" stroke-width="2"/>
+    <path d="M18 16q100-8 223 0" fill="none" stroke="#FFFFFF" stroke-opacity=".54" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="39" cy="42" r="13" fill="#91EAB2" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M33 41l4 5 8-9" fill="none" stroke="#127D67" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="61" y="46" fill="#175C78" font-size="15" font-weight="800" font-family="Arial,sans-serif" letter-spacing=".6">MODO AUTOMÁTICO</text>
+    <text x="25" y="87" fill="#063C65" font-size="35" font-weight="800" font-family="Arial,sans-serif">25% <tspan font-size="16" font-weight="600" fill="#44849C">standby</tspan></text>
+    <rect x="25" y="105" width="216" height="12" rx="6" fill="#FFFFFF" fill-opacity=".69"/>
+    <rect x="25" y="105" width="58" height="12" rx="6" fill="#55C896"/>
+    <text x="26" y="138" fill="#286F84" font-size="13" font-weight="700" letter-spacing=".5" font-family="Arial,sans-serif">LUZ INTELIGENTE · TEMPO REAL</text>
+  </g>
+  <rect width="1500" height="520" fill="none" stroke="#FFFFFF" stroke-opacity=".36" stroke-width="2"/>
+</g>
+</svg>
