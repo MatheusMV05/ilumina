@@ -1,219 +1,314 @@
-# Gestão Inteligente de Iluminação Pública com IoT
+<div align="center">
 
-Firmware do protótipo acadêmico descrito em
-[`gestao_inteligente_iluminacao_publica_iot.md`](gestao_inteligente_iluminacao_publica_iot.md).
-Um ESP32 lê luminosidade, presença e sensores ambientais, controla quatro LEDs
-que representam luminárias, mostra tudo no OLED e num dashboard web, e publica
-telemetria via MQTT (opcional). O controle da iluminação funciona sem rede.
+<img src=".github/assets/ilumina-frutiger-aero.svg" alt="Ilumina: banner Frutiger Aero com céu azul, paisagem verde e poste de iluminação conectado" width="100%">
 
-## Placa
+<br>
 
-NodeMCU-32S / ESP32 DevKit com módulo **ESP-WROOM-32**, 38 pinos, USB-C
-(veja `pinagem_esp32_correta.png`). **Ligue sempre pelo nome impresso na placa**,
-não pela posição em desenhos de outras placas — os modelos de 30 e 38 pinos têm
-ordens diferentes.
+**Uma cidade mais inteligente começa pela luz.**
 
-## Mapa de pinos (`include/PinMap.h`)
+Um protótipo de iluminação pública adaptativa com **ESP32, sensores, diagnóstico integrado e monitoramento em tempo real**.
 
-| Componente | Pino do módulo | Liga em | Observação |
-|---|---|---|---|
-| OLED SSD1306 | VCC / GND / SDA / SCL | 3V3 / GND / GPIO 21 / GPIO 22 | I2C; conferir a ordem VCC/GND impressa no módulo |
-| HC-SR04 | VCC / GND / TRIG / ECHO | Vin (5 V) / GND / GPIO 5 / GPIO 18 | ECHO pelo divisor 1 kΩ + 2 kΩ |
-| KY-038 (som) | + / G / AO / DO | 3V3 / GND / GPIO 34 / GPIO 35 | 34 e 35 são só entrada |
-| DHT11 | VCC / DATA / GND | 3V3 / GPIO 4 / GND | pull-up 10 kΩ entre DATA e 3V3 se o sensor for "nu" |
-| LDR ambiente | uma perna / outra perna | 3V3 / GPIO 33 + 10 kΩ até GND | longe dos LEDs |
-| LDR do poste | uma perna / outra perna | 3V3 / GPIO 32 + 10 kΩ até GND | encostado no LED do poste 1 (confirma que ele acende) |
-| LEDs dos postes | ânodo | GPIO 25, 26, 27, 13 via 220 Ω | cátodo no GND |
-| LED de status | ânodo | GPIO 19 via 220 Ω | cátodo no GND |
+[![ESP32](https://img.shields.io/badge/ESP32-IoT-178AB2?style=for-the-badge&logo=espressif&logoColor=white)](https://www.espressif.com/)
+[![PlatformIO](https://img.shields.io/badge/PlatformIO-Firmware-30A3C4?style=for-the-badge&logo=platformio&logoColor=white)](https://platformio.org/)
+[![Arduino](https://img.shields.io/badge/Arduino-C%2B%2B-17AC9C?style=for-the-badge&logo=arduino&logoColor=white)](https://www.arduino.cc/)
+![Status](https://img.shields.io/badge/status-protótipo_acadêmico-76CD8B?style=for-the-badge)
 
-Sensor IR e MQ-135 **não fazem parte desta montagem**: estão desligados em
-`AppConfig.h` (`IR_INSTALLED`, `MQ135_INSTALLED`) e aparecem como "não instalado".
-Para usá-los, escolha pinos livres em `PinMap.h` e habilite. Sem o IR, a presença
-vem só do HC-SR04.
+[Visão geral](#-visão-geral) · [Funcionamento](#-como-funciona) · [Instalação](#-começando) · [Dashboard](#-dashboard-web) · [Hardware](#-hardware-e-pinagem) · [Documentação](#-documentação)
 
-Divisores: LDR = `3V3 ── LDR ──┬── GPIO ── 10 kΩ ── GND`.
-ECHO e AO = `sinal ── R1 ──┬── GPIO ── R2 ── GND`.
+</div>
 
-> O divisor 1 kΩ (do ECHO ao GPIO) + 2 kΩ (do GPIO ao GND) entrega ~3,3 V, nível
-> seguro e bem reconhecido pelo ESP32. O GPIO 5 (TRIG) é um pino de boot, mas
-> como o TRIG do HC-SR04 é uma entrada, não interfere na inicialização.
+---
 
-## Alimentação
+## 🌿 Visão geral
 
-- ESP32 pelo USB-C. OLED, DHT11, KY-038 e LDRs em **3,3 V**.
-- HC-SR04 e MQ-135 em **5 V** (fonte de 5 V/1 A recomendada; o aquecedor do MQ-135 consome bastante).
-- **Todos os GNDs em comum.** Nunca ligue 5 V externo no pino 3V3 nem em paralelo com o USB.
+O **Ilumina** é um projeto acadêmico de **gestão inteligente da iluminação pública com IoT**. Em vez de manter as luminárias na potência máxima o tempo todo, o sistema adapta sua intensidade à luminosidade ambiente e à presença de pessoas ou objetos.
 
-## Compilar e gravar
+Um **ESP32** lê os sensores, controla **quatro LEDs que simulam postes**, mostra informações no **display OLED SSD1306** e disponibiliza um **dashboard web servido diretamente pelo microcontrolador**. A telemetria por **MQTT** é opcional.
 
-Requer [PlatformIO](https://platformio.org/). As bibliotecas são instaladas sozinhas
-(`platformio.ini`): Adafruit SSD1306, Adafruit GFX, DHT sensor library,
-Adafruit Unified Sensor e PubSubClient.
+> [!IMPORTANT]
+> **A iluminação funciona sem internet.** Wi-Fi e MQTT não são necessários para a lógica de controle: mesmo sem conexão com o roteador, o ESP32 continua operando os LEDs localmente.
+
+### O que torna o Ilumina interessante?
+
+- **Iluminação adaptativa** com PWM, transições suaves e histerese de luminosidade.
+- **Monitoramento de sensores** com status de conexão, leituras e testes práticos.
+- **Diagnóstico de inicialização** no OLED e no monitor serial.
+- **Operação degradada segura** quando o LDR ou a detecção de presença não estão disponíveis.
+- **Dashboard próprio** acessível pela rede Wi-Fi criada pelo ESP32.
+- **Telemetria MQTT opcional** sem bloquear o controle local.
+
+## ✨ Funcionalidades
+
+| Recurso | O que faz |
+| :--- | :--- |
+| 💡 Iluminação inteligente | Ajusta os quatro LEDs de acordo com dia, noite e presença |
+| 🌤️ LDR ambiente | Identifica transições de luminosidade com histerese |
+| 🚶 HC-SR04 | Detecta presença na faixa configurada |
+| 🌡️ DHT11 | Monitora temperatura e umidade |
+| 🎙️ KY-038 | Acompanha variações relativas no nível sonoro, sem gravar áudio |
+| 🧪 Testes de hardware | Diagnósticos no boot e testes sob demanda pelo painel |
+| 📺 OLED SSD1306 | Exibe condições e estados do sistema localmente |
+| 🫧 Dashboard web | Visualiza leituras, alertas, históricos e decisões de controle |
+| 📡 MQTT | Publica telemetria, status e disponibilidade quando habilitado |
+
+## ⚡ Como funciona
+
+O firmware considera a luminosidade ambiente e, durante a noite, a presença nas proximidades das luminárias.
+
+| Condição | Intensidade |
+| :--- | ---: |
+| ☀️ Dia | **0%** |
+| 🌙 Noite sem presença | **25%** |
+| 🚶 Noite com presença | **100%** |
+| ⚠️ LDR ambiente indisponível | **100% — modo seguro** |
+| ⚠️ Noite sem sensor de presença confirmado | **100% — modo seguro** |
+
+Após a última presença, a intensidade elevada é mantida por **10 segundos**. Os limiares e tempos podem ser calibrados em [`include/AppConfig.h`](include/AppConfig.h).
+
+```mermaid
+flowchart TD
+    A["Ler sensores"] --> B{"Leitura do LDR válida?"}
+    B -- Não --> S["Modo seguro: 100%"]
+    B -- Sim --> C{"É dia?"}
+    C -- Sim --> D["Luminárias: 0%"]
+    C -- Não --> E{"Presença disponível?"}
+    E -- Não --> S
+    E -- Sim --> F{"Presença detectada?"}
+    F -- Sim --> G["Luminárias: 100%"]
+    F -- Não --> H["Luminárias: 25%"]
+    D --> I["Atualizar OLED e dashboard"]
+    S --> I
+    G --> I
+    H --> I
+```
+
+### Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph INPUT["Entradas"]
+      L["LDRs"]
+      U["HC-SR04"]
+      T["DHT11"]
+      A["KY-038"]
+    end
+    subgraph ESP["ESP32 · Arduino / C++"]
+      S["SensorManager"]
+      V["SensorValidator / Diagnostics"]
+      C["LightingController"]
+      S --> V
+      S --> C
+    end
+    subgraph OUTPUT["Saídas"]
+      LEDs["4 LEDs PWM"]
+      OLED["OLED SSD1306"]
+      WEB["Dashboard web"]
+      MQTT["MQTT opcional"]
+    end
+    L --> S
+    U --> S
+    T --> S
+    A --> S
+    C --> LEDs
+    V --> OLED
+    C --> WEB
+    V --> WEB
+    V --> MQTT
+```
+
+## 🚀 Começando
+
+### Requisitos
+
+- Placa **ESP32 DevKit / NodeMCU-32S com ESP-WROOM-32**, 38 pinos, conforme o protótipo.
+- Cabo USB de dados e computador com [PlatformIO](https://platformio.org/) instalado (CLI ou extensão do VS Code).
+- Componentes da [tabela de hardware](#-hardware-e-pinagem), conforme a montagem desejada.
+
+### 1. Clone o repositório
 
 ```bash
-pio run                 # compila
-pio run -t upload       # grava (feche o Serial Monitor antes)
-pio device monitor      # Serial a 115200
+git clone https://github.com/MatheusMV05/ilumina.git
+cd ilumina
 ```
 
-## Wi-Fi, MQTT e credenciais
+### 2. Configure as credenciais (opcional)
 
-Copie `secrets.example.h` para `include/secrets.h` e preencha. Esse arquivo
-está no `.gitignore`. Sem ele, o firmware compila e roda em **modo local**.
-
-- `WIFI_SSID` vazio → sem Wi-Fi de roteador (dashboard continua pela rede própria).
-- `MQTT_ENABLED true` + `MQTT_HOST` → publica em
-  `public-lighting/{DEVICE_ID}/telemetry` (a cada 15 s),
-  `.../status` (saúde dos componentes, a cada 60 s e ao conectar) e
-  `.../availability` (`online`/`offline`, retido, com LWT).
-- Wi-Fi e MQTT rodam numa tarefa no núcleo 0: quedas e reconexões não travam a iluminação.
-- A senha nunca é impressa no Serial.
-
-## Dashboard
-
-O ESP32 cria a rede **`Iluminacao-IoT`** (senha padrão `iluminacao123` —
-**troque em `include/secrets.h`**). Conecte o celular ou o notebook nela e abra
-**http://192.168.4.1**. Se o Wi-Fi do roteador estiver configurado, o painel
-também responde no IP mostrado no Serial (`[WIFI] Conectado. IP: ...`).
-
-O painel atualiza a cada segundo e mostra:
-
-- **Resumo no topo** em linguagem simples ("Tudo funcionando", "Funcionando,
-  com 3 pendências", "Modo seguro"), com a lista do que fazer;
-- **Como a luz está sendo decidida**: claro/escuro (limites e histerese) →
-  presença (HC-SR04 **OU** IR) → modo, com o motivo → nível de cada luminária;
-- **Cartão por sensor** com a leitura e o que ela significa ("claro",
-  "som moderado"...), mini-gráfico de 2 minutos e **três verificações**:
-  1. **Conectado** — o firmware detecta o hardware no pino (veja abaixo);
-  2. **Medindo** — o sinal é coerente (taxa de eco, leituras válidas, áudio contínuo);
-  3. **Teste prático** — botão que pede um estímulo ("cubra o LDR", "bata
-     palmas") e confirma que o sensor reagiu dentro do tempo;
-  Se o sensor não for detectado, o cartão abre sozinho a ligação esperada.
-- **Histórico de 5 minutos** do LDR ambiente e da intensidade dos LEDs;
-- **Sistema**: OLED, Wi-Fi, MQTT e botões para você confirmar que viu os
-  LEDs e o verde do RGB acenderem (o ESP32 não consegue medir isso).
-
-API: `GET /api/state` (JSON), `POST /api/test?c=LDR_AMBIENT` (inicia teste
-prático), `POST /api/confirm?c=LEDS` (confirmação visual). Nenhuma rota aciona
-saídas. No Serial Monitor, enviar `j` imprime o JSON do painel.
-
-### Como a conexão de cada sensor é detectada
-
-Medido nesta placa: um pino de ADC solto oscila ±600–900 unidades; ligado a um
-divisor, varia ±3.
-
-| Sensor | Como o firmware sabe que está ligado |
-|---|---|
-| LDRs | GPIO 32/33 têm pull interno: pino solto segue o pull; presa em 0 desde o boot ou em 4095 = ligação errada |
-| LED 1 | o LDR do poste, encostado nele, precisa subir ao menos 150 ADC quando o LED acende no boot |
-| MQ-135 | ruído + liga o pull-up/pull-down interno do GPIO 32: pino solto segue o pull |
-| HC-SR04 | ECHO solto segue o pull interno; com o divisor, o módulo **sempre** sobe o ECHO ~0,5 ms após o TRIG, haja objeto ou não |
-| IR | pull-up × pull-down na saída: se o nível acompanha o pull, nada está ligado |
-| DHT11 | responde ou não ao protocolo; taxa de leituras válidas |
-| KY-038 | GPIO 34 não tem pull: AO solto oscila centenas de ADC mesmo em silêncio; AO em 0 = sem alimentação. DO conta disparos do comparador |
-| OLED | responde no endereço I2C |
-
-Para ver o layout sem o ESP32, abra `web/dashboard.html?demo` no navegador
-(dados simulados, sinalizados na tela).
-
-**Editar o painel:** altere `web/dashboard.html` e regere o cabeçalho embutido:
+O firmware compila e funciona localmente mesmo sem `include/secrets.h`. Para configurar rede, painel e MQTT, copie o modelo:
 
 ```bash
-python3 - <<'EOF'
-html = open('web/dashboard.html', encoding='utf-8').read()
-open('include/DashboardPage.h', 'w', encoding='utf-8').write(
-    '// Gerado a partir de web/dashboard.html — não edite aqui.\n'
-    '// Para regerar, veja a seção "Dashboard" do README.\n'
-    '#pragma once\n\n#include <Arduino.h>\n\n'
-    f'const char DASHBOARD_HTML[] PROGMEM = R"DASHBOARD({html})DASHBOARD";\n')
-EOF
+cp secrets.example.h include/secrets.h
 ```
 
-## Funcionamento
+Edite `include/secrets.h` com os dados da sua rede:
 
-### Diagnóstico de inicialização
+```cpp
+#define WIFI_SSID "sua-rede"
+#define WIFI_PASSWORD "sua-senha"
 
-Ao ligar, antes do painel normal, o OLED e o Serial mostram:
+#define MQTT_ENABLED false
+#define MQTT_HOST ""
+#define MQTT_PORT 1883
+#define MQTT_USERNAME ""
+#define MQTT_PASSWORD ""
 
-1. LEDs acendendo um a um e o verde do RGB → **teste visual** (o ESP32 não mede se o LED acendeu).
-2. LDRs: leitura colada em 0 ou 4095 indica fio solto/sem resistor.
-3. MQ-135: leitura plausível → **AQUECENDO** até `MQ135_WARMUP_MS`.
-4. DHT11: até 2 tentativas de leitura válida.
-5. KY-038: saída AO polarizada e estável (silêncio não é defeito).
-6. **HC-SR04:** “Aproxime objeto 10-50cm” por 6 s. Eco → OK; sem eco → ATENÇÃO.
-7. **IR:** “Passe objeto no IR” por 6 s. Mudou de nível → OK; senão → NÃO TESTADO.
-8. Wi-Fi/MQTT, sem bloquear além do timeout.
-
-Os testes manuais nunca travam: depois do tempo limite a inicialização segue com
-o alerta. Os estados também são reavaliados durante a operação (ex.: o IR vira OK
-na primeira vez que detectar algo).
-
-### Lógica de iluminação
-
-| Condição | LEDs |
-|---|---|
-| Dia | 0% |
-| Noite, sem presença | 25% |
-| Noite, com presença (ou até 10 s depois) | 100% |
-| LDR ambiente indisponível | 100% (modo seguro: nunca assume dia) |
-| Noite sem nenhum sensor de presença **confirmado** | 100% (modo seguro) |
-
-Um sensor de presença só é considerado confirmado depois de dar sinal de vida
-(eco válido no HC-SR04 ou mudança de nível no IR). Até lá, o sistema não depende
-dele à noite. Faça os testes manuais do boot para sair do modo seguro.
-
-As transições de intensidade são graduais (`LIGHT_FADE_MS_PER_PERCENT`).
-
-## Calibração (`include/AppConfig.h`)
-
-Nenhum valor abaixo é medição — são pontos de partida:
-
-- **`DAY_THRESHOLD` / `NIGHT_THRESHOLD`** (2200/1800): observe o LDR ambiente
-  no Serial (`[LOOP] LDR amb=...`) ou no dashboard, com o ambiente claro e
-  depois coberto, e ponha os limites entre os dois valores, com folga entre eles.
-  Se a leitura diminuir com mais luz, use `LDR_INVERTED = true`.
-- **`IR_ACTIVE_LOW`**: confira no dashboard se “Saída” vira “obstáculo” ao
-  passar a mão; se ficar invertido, troque o valor. Ajuste a distância no trimpot.
-- **`RGB_COMMON_ANODE`**: `true` se o comum do RGB vai no 3,3 V.
-- **`MIN/MAX_DISTANCE_CM`**: faixa do HC-SR04 que conta como presença.
-- **`MQ135_WARMUP_MS`** e **`MQ135_LEVEL_MEDIUM/HIGH`**: classificação
-  relativa (BAIXO/MÉDIO/ALTO), **não ppm**.
-- **`ADC_FLOATING_STDDEV`**: ruído acima do qual um pino de ADC é considerado solto.
-- **Testes práticos** (`TEST_WINDOW_MS`, `LDR_TEST_*`, `MIC_TEST_MIN_RISE_DB`...):
-  quanto o sensor precisa reagir para o teste passar.
-
-## Roteiro de testes
-
-| Teste | Como | Esperado |
-|---|---|---|
-| Boot normal | ligar tudo | diagnóstico no OLED, depois o painel |
-| OLED desconectado | ligar sem OLED | firmware segue; erro no Serial |
-| DHT11 desconectado | ligar sem ele | DHT11 FALHA; luz continua |
-| Noite | cobrir o LDR ambiente | NOITE após o limite; LEDs em 25% |
-| Dia | iluminar o LDR | DIA; LEDs apagam |
-| Histerese | luz perto do limite | estado não oscila |
-| Presença | objeto a 5–120 cm à noite | LEDs em 100%, voltam a 25% após 10 s |
-| IR | passar a mão | “Detectou” no dashboard |
-| Sensores de presença ausentes | ligar sem os dois, à noite | modo seguro (100%) |
-| Wi-Fi / MQTT fora | desligar roteador/broker | controle local continua; reconexão no Serial |
-| Uso prolongado | deixar ligado | sem travar ou reiniciar |
-
-## Limitações
-
-- LDR em ADC, não lux; som do KY-038 em dB relativo ao ADC, não dB SPL.
-- O áudio é processado em blocos só para calcular RMS; nada é gravado ou transmitido.
-- Teste de LED é visual; confirmar eletricamente exigiria realimentação.
-- O protótipo não comprova, sozinho, as metas de 35% de economia ou 50% em manutenção.
-- O GPIO 14 (LED 2) emite pulsos durante o boot do ESP32; uma piscada breve é normal.
-
-## Estrutura
-
+#define DEVICE_ID "poste-01"
+#define DASHBOARD_ENABLED true
+#define DASHBOARD_AP_SSID "Iluminacao-IoT"
+#define DASHBOARD_AP_PASSWORD "sua-senha-segura"
 ```
-include/  AppConfig.h  PinMap.h  Components.h  SensorManager.h  SensorValidator.h
-          Diagnostics.h  LightingController.h
-          DisplayManager.h  ConnectivityManager.h  DashboardServer.h  Telemetry.h
-          DashboardPage.h (gerado)
-src/      main.cpp + um .cpp por módulo
-web/      dashboard.html (fonte do painel)
-secrets.example.h
+
+> [!CAUTION]
+> `include/secrets.h` é ignorado pelo Git. **Não publique senhas reais.** Altere a senha padrão do ponto de acesso antes de usar o painel perto de redes ou pessoas não confiáveis.
+
+### 3. Compile e envie ao ESP32
+
+```bash
+pio run
+pio run -t upload
+pio device monitor
 ```
+
+O monitor serial usa **115200 baud**. O arquivo [`platformio.ini`](platformio.ini) contém portas de upload/monitor configuradas com um padrão macOS (`/dev/cu.usbserial-*`); em Windows ou Linux, ajuste esses valores para a porta detectada ou remova-os para seleção automática.
+
+As dependências, incluindo **Adafruit SSD1306**, **Adafruit GFX**, **DHT sensor library**, **Adafruit Unified Sensor** e **PubSubClient**, são gerenciadas pelo PlatformIO.
+
+## 🫧 Dashboard web
+
+O ESP32 cria um ponto de acesso Wi-Fi próprio, permitindo visualizar o painel **mesmo sem roteador**.
+
+1. Conecte o celular ou notebook à rede **`Iluminacao-IoT`**.
+2. Use a senha definida em `DASHBOARD_AP_PASSWORD` (sem arquivo de configuração, o valor padrão do firmware é `iluminacao123`).
+3. Abra **http://192.168.4.1** no navegador.
+
+Quando o ESP32 também estiver conectado a um roteador, o painel pode ser aberto pelo endereço IP informado no monitor serial.
+
+O dashboard reúne resumo do estado do sistema, explicação da decisão de iluminação, cartões de sensores, minigráficos, histórico de luminosidade e brilho, além de testes práticos.
+
+**Quer conhecer a interface sem montar o circuito?** Abra [`web/dashboard.html`](web/dashboard.html) localmente usando o parâmetro `?demo` na URL. Esse modo utiliza **dados simulados**, identificados na tela.
+
+### API local
+
+| Método | Endpoint | Finalidade |
+| :--- | :--- | :--- |
+| `GET` | `/api/state` | Consultar o estado do sistema em JSON |
+| `POST` | `/api/test?c=LDR_AMBIENT` | Iniciar um teste prático do componente |
+| `POST` | `/api/confirm?c=LEDS` | Registrar confirmação visual do usuário |
+
+Essas rotas não fazem acionamento remoto direto das luminárias.
+
+> Para editar a interface embarcada, altere `web/dashboard.html` e **regenere `include/DashboardPage.h`** seguindo o procedimento no [README técnico anterior (histórico Git)](https://github.com/MatheusMV05/ilumina/commits/main/README.md) ou na [documentação completa](gestao_inteligente_iluminacao_publica_iot.md). Não edite o cabeçalho gerado manualmente.
+
+## 🔌 Hardware e pinagem
+
+O protótipo utiliza uma placa **ESP32 de 38 pinos**. Confira os nomes impressos nos terminais da placa: a disposição dos pinos varia entre modelos.
+
+| Componente | Conexões no ESP32 | Observação |
+| :--- | :--- | :--- |
+| OLED SSD1306 | SDA: **GPIO 21** · SCL: **GPIO 22** | I²C, 3,3 V |
+| HC-SR04 | TRIG: **GPIO 5** · ECHO: **GPIO 18** | Alimentação 5 V; ECHO exige divisor resistivo |
+| DHT11 | DATA: **GPIO 4** | Alimentação 3,3 V |
+| KY-038 | AO: **GPIO 34** · DO: **GPIO 35** | Alimentação 3,3 V; GPIOs só de entrada |
+| LDR ambiente | **GPIO 33** | Divisor com resistor de 10 kΩ |
+| LDR do poste | **GPIO 32** | Divisor com resistor de 10 kΩ; monitora o LED 1 |
+| Quatro LEDs | **GPIO 25, 26, 27, 13** | Um resistor de 220 Ω por LED |
+| LED de status | **GPIO 19** | Resistor de 220 Ω |
+
+**Sensores opcionais não instalados na montagem atual:** IR e MQ-135. Estão desabilitados por padrão em `AppConfig.h` e exigem conexão e configuração antes de serem habilitados.
+
+<div align="center">
+<img src="esquema-ligacao.svg" alt="Esquema de ligação elétrica do protótipo Ilumina" width="86%">
+<br>
+<sub>Esquema de ligação do hardware.</sub>
+</div>
+
+### Segurança elétrica
+
+> [!WARNING]
+> - **Nunca conecte o ECHO de 5 V do HC-SR04 diretamente ao ESP32.** Use o divisor de tensão de **1 kΩ + 2 kΩ** descrito na documentação.
+> - Compartilhe o **GND** entre todos os componentes.
+> - Não aplique 5 V externos ao pino **3V3**.
+> - Os LEDs representam luminárias em uma **maquete**. O projeto não implementa acionamento direto de rede elétrica ou de postes reais.
+
+Detalhes de montagem e diagnósticos estão em [`gestao_inteligente_iluminacao_publica_iot.md`](gestao_inteligente_iluminacao_publica_iot.md), [`include/PinMap.h`](include/PinMap.h) e [`chat-esquema-esp32.md`](chat-esquema-esp32.md).
+
+## 📡 Telemetria MQTT
+
+Com MQTT habilitado e broker configurado, o ESP32 publica:
+
+| Tópico | Conteúdo | Frequência |
+| :--- | :--- | :--- |
+| `public-lighting/{DEVICE_ID}/telemetry` | Leituras e estado operacional | A cada **15 s** |
+| `public-lighting/{DEVICE_ID}/status` | Saúde dos componentes | A cada **60 s** e na conexão |
+| `public-lighting/{DEVICE_ID}/availability` | `online` / `offline` | Estado retido e Last Will |
+
+A conectividade é gerenciada separadamente da lógica principal; quedas de Wi-Fi ou do broker não impedem o controle local da iluminação.
+
+## 🩺 Diagnóstico e validação
+
+Ao ligar, o firmware executa uma sequência de verificações e exibe estados no OLED e no serial. Os testes incluem:
+
+- Verificação visual dos LEDs e análise do LDR próximo ao primeiro poste.
+- Leitura e plausibilidade dos LDRs, DHT11 e KY-038.
+- Resposta do sensor ultrassônico com solicitação de aproximação de objeto.
+- Identificação do OLED pela conexão I²C.
+- Estado da conectividade Wi-Fi/MQTT.
+
+Os testes práticos solicitados ao operador têm tempo limite e não devem travar a inicialização.
+
+**Roteiro recomendado:** simule dia e noite cobrindo/iluminando o LDR; aproxime um objeto do HC-SR04 durante a noite; desconecte um sensor e observe o modo seguro; desligue o Wi-Fi para confirmar a autonomia local.
+
+## 📁 Estrutura do projeto
+
+```text
+ilumina/
+├── .github/
+│   └── assets/
+│       └── ilumina-frutiger-aero.svg
+├── include/
+│   ├── AppConfig.h           # Parâmetros e calibração
+│   ├── PinMap.h              # GPIOs dos componentes
+│   ├── SensorManager.h       # Leituras
+│   ├── SensorValidator.h     # Validação e testes
+│   ├── Diagnostics.h         # Saúde dos componentes
+│   ├── LightingController.h  # Controle adaptativo
+│   ├── DisplayManager.h      # Interface OLED
+│   ├── ConnectivityManager.h # Rede e MQTT
+│   ├── DashboardServer.h     # Servidor HTTP
+│   ├── DashboardPage.h       # HTML embarcado (gerado)
+│   └── Telemetry.h           # Estados em JSON
+├── src/                      # Implementações C++ e main.cpp
+├── web/
+│   └── dashboard.html        # Fonte do painel web
+├── test/
+├── platformio.ini
+├── secrets.example.h
+├── esquema-ligacao.svg
+└── gestao_inteligente_iluminacao_publica_iot.md
+```
+
+## 📚 Documentação
+
+| Arquivo | Conteúdo |
+| :--- | :--- |
+| [Documentação técnica completa](gestao_inteligente_iluminacao_publica_iot.md) | Planejamento, montagem e especificações do protótipo |
+| [Mapa de pinos](include/PinMap.h) | GPIOs efetivamente usados no firmware |
+| [Configuração](include/AppConfig.h) | Limiares, tempos, opções e parâmetros |
+| [Esquema elétrico](esquema-ligacao.svg) | Diagrama da ligação |
+| [Painel web](web/dashboard.html) | Código-fonte do dashboard |
+| [Credenciais de exemplo](secrets.example.h) | Modelo de configuração local |
+
+## 🌍 Impacto e limitações
+
+O projeto está alinhado com o debate sobre **energia limpa, cidades sustentáveis e eficiência de recursos** (ODS 7, 11 e 13). A proposta acadêmica estabelece metas de redução de consumo e melhoria na manutenção, **mas esses resultados ainda não são métricas comprovadas pelo protótipo**.
+
+A demonstração utiliza LEDs de baixa potência, não luminárias públicas reais. Os LDRs produzem valores ADC, e o KY-038 mede níveis **relativos** de som, não decibéis SPL calibrados. A verificação de alguns LEDs depende de confirmação visual; não há medição elétrica individual de todas as saídas.
+
+---
+
+<div align="center">
+
+**ilumina** · *Tecnologia para cidades mais conscientes.*
+
+<sub>Protótipo acadêmico de iluminação pública inteligente com ESP32 e IoT.</sub>
+
+</div>
