@@ -184,7 +184,15 @@ Quando o ESP32 também estiver conectado a um roteador, o painel pode ser aberto
 
 O dashboard reúne resumo do estado do sistema, explicação da decisão de iluminação, cartões de sensores, minigráficos, histórico de luminosidade e brilho, além de testes práticos.
 
-**Quer conhecer a interface sem montar o circuito?** Abra [`web/dashboard.html`](web/dashboard.html) localmente usando o parâmetro `?demo` na URL. Esse modo utiliza **dados simulados**, identificados na tela.
+**Quer conhecer a interface sem montar o circuito?** Rode o protótipo em [`web-prototipo/`](web-prototipo/), a mesma interface com **dados simulados**:
+
+```bash
+cd web-prototipo
+npm install
+npm run dev
+```
+
+O painel real em `web/` também aceita `?demo` na URL (`npm run dev` e abra `http://localhost:5173/?demo`).
 
 ### API local
 
@@ -196,7 +204,19 @@ O dashboard reúne resumo do estado do sistema, explicação da decisão de ilum
 
 Essas rotas não fazem acionamento remoto direto das luminárias.
 
-> Para editar a interface embarcada, altere `web/dashboard.html` e **regenere `include/DashboardPage.h`** seguindo o procedimento no [README técnico anterior (histórico Git)](https://github.com/MatheusMV05/ilumina/commits/main/README.md) ou na [documentação completa](gestao_inteligente_iluminacao_publica_iot.md). Não edite o cabeçalho gerado manualmente.
+### Editar a interface
+
+O painel é um app **React + TypeScript** (Vite) em `web/`. O build gera um único HTML com JS e CSS embutidos, comprimido com gzip em `include/DashboardPage.h`. O ESP32 envia esse arquivo com `Content-Encoding: gzip` e não precisa de internet.
+
+```bash
+cd web
+npm install          # uma vez
+npm run dev          # abra http://localhost:5173/?demo (dados simulados)
+VITE_POSTE=http://192.168.4.1 npm run dev   # dados reais do poste, com hot reload
+npm run build        # checa os tipos e regera include/DashboardPage.h
+```
+
+Depois do `npm run build`, grave o firmware de novo (`pio run -t upload`). Não edite o cabeçalho gerado manualmente.
 
 ## 🔌 Hardware e pinagem
 
@@ -277,8 +297,10 @@ ilumina/
 │   ├── DashboardPage.h       # HTML embarcado (gerado)
 │   └── Telemetry.h           # Estados em JSON
 ├── src/                      # Implementações C++ e main.cpp
-├── web/
-│   └── dashboard.html        # Fonte do painel web
+├── web/                      # Painel web (React + TypeScript)
+│   ├── src/                  # Componentes, tipos e simulação
+│   └── scripts/embed.mjs     # Gera include/DashboardPage.h
+├── web-prototipo/            # Mesmo painel, só com dados simulados
 ├── test/
 ├── platformio.ini
 ├── secrets.example.h
@@ -294,7 +316,8 @@ ilumina/
 | [Mapa de pinos](include/PinMap.h) | GPIOs efetivamente usados no firmware |
 | [Configuração](include/AppConfig.h) | Limiares, tempos, opções e parâmetros |
 | [Esquema elétrico](esquema-ligacao.svg) | Diagrama da ligação |
-| [Painel web](web/dashboard.html) | Código-fonte do dashboard |
+| [Painel web](web/src/App.tsx) | Código-fonte do dashboard |
+| [Protótipo](web-prototipo/) | Painel com dados simulados, sem ESP32 |
 | [Credenciais de exemplo](secrets.example.h) | Modelo de configuração local |
 
 ## 🌍 Impacto e limitações

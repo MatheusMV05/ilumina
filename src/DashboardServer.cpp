@@ -52,7 +52,11 @@ DashboardServer::RequestType DashboardServer::takeRequest(Component &component) 
 }
 
 void DashboardServer::handleRoot() {
-  server.send_P(200, "text/html; charset=utf-8", DASHBOARD_HTML);
+  // Página já comprimida no build (web/scripts/embed.mjs); todo navegador atual aceita gzip
+  server.sendHeader("Content-Encoding", "gzip");
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send_P(200, "text/html; charset=utf-8", reinterpret_cast<const char *>(DASHBOARD_HTML_GZ),
+                DASHBOARD_HTML_GZ_LEN);
 }
 
 void DashboardServer::handleState() {
