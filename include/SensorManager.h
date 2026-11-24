@@ -61,6 +61,11 @@ struct SensorReadings {
   float ambientNoise = 0;  // desvio padrão das amostras
   float localNoise = 0;
   LinkStatus ambientLink, localLink;
+  // Teste de pull do último ciclo (ADC bruto): pino solto segue o pull de 0 a 4095,
+  // com o divisor de 10 kΩ a tensão quase não muda. -1 = ainda não medido
+  int ambientPullUp = -1, ambientPullDown = -1;
+  int localPullUp = -1, localPullDown = -1;
+  float ambientFiltered = -1;  // média móvel usada na decisão de dia/noite (-1 = sem leitura ainda)
 
   // HC-SR04
   Reading<float> distanceCm;
@@ -68,7 +73,9 @@ struct SensorReadings {
   uint8_t echoValidPercent = 0;     // medições com eco
   uint8_t echoResponsePercent = 0;  // medições em que o módulo respondeu
   uint8_t echoSamples = 0;
-  bool ultrasonicPresence = false;  // objeto confirmado na faixa configurada
+  bool ultrasonicPresence = false;  // movimento confirmado na faixa configurada
+  float distanceMedianCm = -1;      // mediana das 3 últimas medições (corta picos)
+  float motionBackgroundCm = -1;    // "fundo" aprendido: objetos parados entram aqui
   bool ultrasonicEverEchoed = false;
   LinkStatus ultrasonicLink;
 
@@ -122,7 +129,9 @@ class SensorManager {
 
   const SensorReadings &readings() const { return data; }
   // Leitura imediata do LDR do poste (teste óptico do LED 1 no boot)
-  int sampleLocalLdr();
+  int sampleLocalLdr() { return sampleLdr(Pins::LDR_LOCAL); }
+  // Média imediata de um LDR, já com a polaridade do AppConfig (calibração)
+  static int sampleLdr(uint8_t pin);
 
  private:
   void updateLdrs(uint32_t now);
@@ -134,10 +143,11 @@ class SensorManager {
   void runProbes(uint32_t now);
 
   EchoResult measureDistance(float &distanceCm);
+  void updateMotion(float cm, uint32_t now);
   void readLdr(uint8_t pin, Reading<int> &reading, float &noise, LinkStatus &link,
                uint32_t &badSince, bool probeFloating, bool &everLit, uint32_t now);
   static bool adcHasPulls(uint8_t pin);
-  bool adcPinFloats(uint8_t pin);
+  bool adcPinFloats(uint8_t pin, int &withPullUp, int &withPullDown);
   bool digitalPinFloats(uint8_t pin);
 
   DHT dht{Pins::DHT_DATA, DHT11};
@@ -159,6 +169,10 @@ class SensorManager {
 
   // HC-SR04
   uint8_t inRangeCount = 0;
+  float recentCm[3] = {};
+  uint8_t recentCount = 0;
+  uint8_t recentPos = 0;
+  uint32_t lastMotionUpdateMs = 0;
   uint32_t echoHighSince = 0;
   bool echoFloating = false;
   EchoResult echoHistory[32] = {};

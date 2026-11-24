@@ -287,10 +287,10 @@ void writeSensorFields(JsonWriter &j, const AppSnapshot &s) {
 const char *lightingReason(const AppSnapshot &s) {
   switch (s.lighting.mode()) {
     case LightingMode::DAY_OFF: return "Ambiente claro: luminarias apagadas";
-    case LightingMode::ECONOMY: return "Noite sem presenca: nivel reduzido para economizar";
+    case LightingMode::ECONOMY: return "Escuro sem movimento: brilho reduzido conforme o escuro";
     case LightingMode::ACTIVE:
-      return (s.presenceHc || s.presenceIr) ? "Presenca detectada: intensidade maxima"
-                                            : "Presenca recente: mantendo intensidade maxima";
+      return (s.presenceHc || s.presenceIr) ? "Movimento detectado: intensidade maxima"
+                                            : "Movimento recente: mantendo intensidade maxima";
     default:
       if (!s.readings.ambientAdc.valid) {
         return "LDR ambiente indisponivel: modo seguro (nunca assume dia)";
@@ -398,6 +398,35 @@ size_t buildDashboardJson(const AppSnapshot &s, char *out, size_t size) {
   j.boolean(s.diag.irUsable());
   j.key("hold_remaining_ms");
   j.value("%lu", l.holdRemainingMs(s.now));
+  j.key("ambient_used");
+  if (s.readings.ambientAdc.valid) j.value("%d", s.ambientUsed);
+  else j.null();
+  j.key("lamp_crosstalk");
+  j.value("%d", s.diag.lampCrosstalk());
+  // Uma entrada por luminária: comando do painel, brilho atual e resultado da verificação
+  j.key("lamps");
+  j.open('[');
+  for (uint8_t zone = 0; zone < Pins::LAMP_COUNT; zone++) {
+    j.open('{');
+    j.key("control");
+    j.text(LightingController::controlLabel(l.zoneControl(zone)));
+    j.key("manual_percent");
+    j.value("%u", l.manualPercent(zone));
+    j.key("percent");
+    j.value("%u", l.zonePercent(zone));
+    j.key("status");
+    j.text(LampMonitor::statusLabel(s.lamps.status(zone)));
+    j.key("delta");
+    if (s.lamps.checked()) j.value("%d", s.lamps.delta(zone));
+    else j.null();
+    j.close('}');
+  }
+  j.close(']');
+  j.key("lamp_check_ago_ms");
+  if (s.lamps.checked()) j.value("%lu", s.now - s.lamps.lastCheckMs());
+  else j.null();
+  j.key("lamp_check_no_signal");
+  j.boolean(s.lamps.noSignal());
   j.key("reason");
   j.text(lightingReason(s));
   j.close('}');
@@ -408,8 +437,12 @@ size_t buildDashboardJson(const AppSnapshot &s, char *out, size_t size) {
   j.value("%d", Config::DAY_THRESHOLD);
   j.key("night_threshold");
   j.value("%d", Config::NIGHT_THRESHOLD);
-  j.key("standby_percent");
-  j.value("%u", Config::LIGHT_STANDBY_PERCENT);
+  j.key("dark_threshold");
+  j.value("%d", Config::DARK_THRESHOLD);
+  j.key("dusk_percent");
+  j.value("%u", Config::LIGHT_DUSK_PERCENT);
+  j.key("night_percent");
+  j.value("%u", Config::LIGHT_NIGHT_PERCENT);
   j.key("active_percent");
   j.value("%u", Config::LIGHT_ACTIVE_PERCENT);
   j.key("hold_ms");

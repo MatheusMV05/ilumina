@@ -10,9 +10,9 @@ export function Orb({ spec, size = "md" }: { spec: Pick<StatusSpec, "tone" | "ic
   );
 }
 
-export function Badge({ spec, label }: { spec: StatusSpec; label?: string }) {
+export function Badge({ spec, label, live }: { spec: StatusSpec; label?: string; live?: boolean }) {
   return (
-    <span className={`badge tone-${spec.tone}`}>
+    <span className={`badge tone-${spec.tone}${live ? " live" : ""}`}>
       <Orb spec={spec} size="sm" />
       <span>{label ?? spec.text}</span>
     </span>

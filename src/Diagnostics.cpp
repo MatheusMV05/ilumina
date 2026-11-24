@@ -193,6 +193,15 @@ void Diagnostics::evaluate(const SensorReadings &r, const ConnectivityManager &n
                  "conectado, sinal estavel");
   evaluateSensor(Component::LDR_LOCAL, r.localLink, validator, Health::OK,
                  "conectado, sinal estavel");
+  // Pino solto: mostra o que foi medido, para não parecer um palpite
+  if (r.ambientLink.reason == LinkReason::FLOATING && r.ambientPullUp >= 0) {
+    set(Component::LDR_AMBIENT, Health::FAILURE, "GPIO %u solto: pull-up %d, pull-down %d", Pins::LDR_AMBIENT,
+        r.ambientPullUp, r.ambientPullDown);
+  }
+  if (r.localLink.reason == LinkReason::FLOATING && r.localPullUp >= 0) {
+    set(Component::LDR_LOCAL, Health::FAILURE, "GPIO %u solto: pull-up %d, pull-down %d", Pins::LDR_LOCAL,
+        r.localPullUp, r.localPullDown);
+  }
 
   char text[48];
   snprintf(text, sizeof(text), "modulo responde, eco em %u%%", r.echoValidPercent);
@@ -225,10 +234,25 @@ void Diagnostics::evaluate(const SensorReadings &r, const ConnectivityManager &n
 
   // LEDs não têm realimentação: só o usuário pode confirmar
   // Exceção: o LED 1 é medido pelo LDR do poste, que fica encostado nele
-  if (validator.passed(Component::LEDS)) {
+  // Medição elétrica de cada LED vem primeiro: um LED ausente é falha mesmo se alguém confirmou antes
+  uint8_t missing = lamps ? lamps->missingCount() : 0;
+  bool allMeasured = lamps && lamps->checked() && !lamps->noSignal();
+  if (missing > 0) {
+    char list[24] = "";
+    for (uint8_t z = 0; z < Pins::LAMP_COUNT; z++) {
+      if (lamps->status(z) != LampStatus::MISSING) continue;
+      size_t len = strlen(list);
+      snprintf(list + len, sizeof(list) - len, "%s%u", len ? ", " : "", z + 1);
+    }
+    set(Component::LEDS, missing == Pins::LAMP_COUNT ? Health::FAILURE : Health::WARNING,
+        "%s sem resposta: %s", missing == 1 ? "LED" : "LEDs", list);
+  } else if (validator.passed(Component::LEDS)) {
     set(Component::LEDS, Health::OK, "confirmado pelo usuario");
+  } else if (allMeasured) {
+    set(Component::LEDS, Health::OK, "os %u LEDs responderam na verificacao", Pins::LAMP_COUNT);
   } else if (r.localLink.state != Link::CONNECTED) {
-    set(Component::LEDS, Health::VISUAL_CHECK, "confirme no painel se acenderam");
+    // Sem o LDR do poste nenhum LED pode ser medido: o pino de saída não sente a carga
+    set(Component::LEDS, Health::VISUAL_CHECK, "sem medicao (LDR do poste desligado): confirme no painel");
   } else if (lamp1OpticalDelta >= Config::LAMP1_OPTICAL_MIN_DELTA) {
     set(Component::LEDS, Health::VISUAL_CHECK, "LED 1 medido (+%d); confirme os demais",
         lamp1OpticalDelta);
@@ -297,6 +321,21 @@ void Diagnostics::testLeds(SensorManager &sensors, LightingController &lighting,
     lighting.setZoneImmediate(zone, 0);
   }
   Serial.printf("[DIAG] LED 1 visto pelo LDR do poste: %+d ADC\n", lamp1OpticalDelta);
+
+  // Desvio do LDR ambiente com tudo aceso: interferência elétrica e luz dos próprios LEDs.
+  // Três rodadas e a menor: uma nuvem ou sombra no meio só aumentaria o valor
+  int crosstalk = Config::LDR_CROSSTALK_MAX;
+  for (uint8_t round = 0; round < 3; round++) {
+    int off = SensorManager::sampleLdr(Pins::LDR_AMBIENT);
+    lighting.setAllImmediate(100);
+    delay(Config::LED_TEST_STEP_MS);
+    int on = SensorManager::sampleLdr(Pins::LDR_AMBIENT);
+    lighting.setAllImmediate(0);
+    delay(Config::LED_TEST_STEP_MS);
+    crosstalk = min(crosstalk, on - off);
+  }
+  lampCrosstalk_ = constrain(crosstalk, 0, Config::LDR_CROSSTALK_MAX - 1);
+  Serial.printf("[DIAG] LDR ambiente com os 4 LEDs acesos: %+d ADC (descontado na decisao)\n", crosstalk);
   display.showPrompt("TESTE DE LEDS", "Verifique LEDs", "LED de status");
   display.setStatusLed(true);
   delay(Config::LED_TEST_STEP_MS);

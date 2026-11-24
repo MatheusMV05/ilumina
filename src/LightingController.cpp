@@ -15,6 +15,24 @@ void LightingController::begin() {
   }
 }
 
+LampProbe LightingController::probeLamp(uint8_t zone) {
+  constexpr uint32_t SETTLE_US = 150;
+  LampProbe probe;
+  if (zone >= Pins::LAMP_COUNT) return probe;
+  uint8_t pin = Pins::LAMPS[zone];
+  ledcDetachPin(pin);
+  pinMode(pin, INPUT_PULLUP);
+  delayMicroseconds(SETTLE_US);
+  probe.highWithPullUp = digitalRead(pin);
+  pinMode(pin, INPUT_PULLDOWN);
+  delayMicroseconds(SETTLE_US);
+  probe.highWithPullDown = digitalRead(pin);
+  pinMode(pin, OUTPUT);
+  ledcAttachPin(pin, zone);
+  writeZone(zone, zoneCurrent[zone]);
+  return probe;
+}
+
 void LightingController::update(const LightingInputs &inputs, uint32_t now) {
   if (inputs.presenceDetected) {
     hadPresence = true;
@@ -41,12 +59,17 @@ void LightingController::update(const LightingInputs &inputs, uint32_t now) {
   uint8_t target;
   switch (mode_) {
     case LightingMode::DAY_OFF: target = Config::LIGHT_OFF_PERCENT; break;
-    case LightingMode::ECONOMY: target = Config::LIGHT_STANDBY_PERCENT; break;
+    case LightingMode::ECONOMY: target = economyPercent(inputs.ambientAdc); break;
     case LightingMode::ACTIVE: target = Config::LIGHT_ACTIVE_PERCENT; break;
     default: target = Config::LIGHT_SAFE_PERCENT; break;
   }
+  autoTarget_ = target;
   for (uint8_t zone = 0; zone < Pins::LAMP_COUNT; zone++) {
-    setZoneTarget(zone, target);
+    switch (control_[zone]) {
+      case ZoneControl::OFF: setZoneTarget(zone, 0); break;
+      case ZoneControl::ON: setZoneTarget(zone, manual_[zone]); break;
+      default: setZoneTarget(zone, target); break;
+    }
   }
 
   applyFade(now);
@@ -65,6 +88,17 @@ void LightingController::updateDayNight(int adc) {
   } else if (adc < Config::NIGHT_THRESHOLD) {
     night = true;
   }
+}
+
+uint8_t LightingController::economyPercent(int adc) {
+  // Entre NIGHT_THRESHOLD e DAY_THRESHOLD (histerese, luz já acesa) fica no mínimo do anoitecer
+  if (adc >= Config::NIGHT_THRESHOLD) return Config::LIGHT_DUSK_PERCENT;
+  if (adc <= Config::DARK_THRESHOLD) return Config::LIGHT_NIGHT_PERCENT;
+  // Quanto mais escuro, mais forte: interpolação linear entre os dois níveis
+  float darkness = static_cast<float>(Config::NIGHT_THRESHOLD - adc) /
+                   (Config::NIGHT_THRESHOLD - Config::DARK_THRESHOLD);
+  return static_cast<uint8_t>(Config::LIGHT_DUSK_PERCENT +
+                              darkness * (Config::LIGHT_NIGHT_PERCENT - Config::LIGHT_DUSK_PERCENT) + 0.5f);
 }
 
 void LightingController::setZoneTarget(uint8_t zone, uint8_t percent) {
@@ -112,6 +146,27 @@ void LightingController::setAllImmediate(uint8_t percent) {
 
 void LightingController::writeZone(uint8_t zone, float percent) {
   ledcWrite(zone, static_cast<uint32_t>(percent * PWM_MAX / 100.0f + 0.5f));
+}
+
+void LightingController::setZoneControl(uint8_t zone, ZoneControl control, uint8_t percent) {
+  if (zone >= Pins::LAMP_COUNT) return;
+  control_[zone] = control;
+  if (control == ZoneControl::ON) manual_[zone] = constrain(percent, 1, 100);
+}
+
+bool LightingController::anyManual() const {
+  for (ZoneControl c : control_) {
+    if (c != ZoneControl::AUTO) return true;
+  }
+  return false;
+}
+
+const char *LightingController::controlLabel(ZoneControl c) {
+  switch (c) {
+    case ZoneControl::OFF: return "OFF";
+    case ZoneControl::ON: return "ON";
+    default: return "AUTO";
+  }
 }
 
 const char *LightingController::modeOledLabel(LightingMode m) {

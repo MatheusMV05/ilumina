@@ -4,6 +4,7 @@
 
 #include "ConnectivityManager.h"
 #include "Diagnostics.h"
+#include "LampMonitor.h"
 #include "LightingController.h"
 #include "SensorManager.h"
 #include "SensorValidator.h"
@@ -15,10 +16,12 @@ struct AppSnapshot {
   const Diagnostics &diag;
   const ConnectivityManager &net;
   const SensorValidator &validator;
+  const LampMonitor &lamps;
   uint32_t now;
   bool mq135WarmingUp;
   bool presenceHc;  // presença vinda do HC-SR04 neste ciclo
   bool presenceIr;  // presença vinda do sensor IR neste ciclo
+  int ambientUsed;  // LDR ambiente filtrado e sem o desvio dos LEDs: o valor que decide dia/noite
 };
 
 // Telemetria MQTT (formato da especificação). Sensor indisponível vira null.

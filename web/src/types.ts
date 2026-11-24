@@ -94,12 +94,29 @@ export interface LightingState {
   ir_usable: boolean;
   hold_remaining_ms: number;
   reason: string;
+  lamps: LampState[];
+  lamp_check_ago_ms: number | null;
+  lamp_check_no_signal: boolean;
+}
+
+export type LampControl = "AUTO" | "OFF" | "ON";
+export type LampStatus = "OK" | "MISSING" | "UNKNOWN";
+
+// Uma luminária: comando do painel, brilho atual e resultado da verificação elétrica
+export interface LampState {
+  control: LampControl;
+  manual_percent: number;
+  percent: number;
+  status: LampStatus;
+  delta: number | null;
 }
 
 export interface LightingConfig {
   day_threshold: number;
   night_threshold: number;
-  standby_percent: number;
+  dark_threshold: number;
+  dusk_percent: number;
+  night_percent: number;
   active_percent: number;
   hold_ms: number;
   min_distance_cm: number;
@@ -126,9 +143,43 @@ export interface HistoryPoint {
   presence: boolean;
   light: number;
   mode: Mode;
+  // Luz medida pelo LDR encostado no LED 1, para conferir se ele acende de fato
+  lampLdr: number | null;
+  distance: number | null;
+  inRange: boolean;
+  health: Partial<Record<Code, Health>>;
+}
+
+// Energia acumulada desde que o painel abriu, em "% de potência × amostras"
+export interface EnergyTally {
+  since: number;
+  used: number;
+  baseline: number;
 }
 
 export interface SparkPoint {
   t: number;
   v: number | null;
+}
+
+// Formato de GET /api/street (src/StreetStats.cpp): uma entrada por hora do dia, 0 a 23h
+export interface StreetHour {
+  s: number;          // segundos observados nesta hora
+  p: number;          // passagens (começos de movimento)
+  m: number;          // segundos com movimento
+  n: number | null;   // nível médio do som acima do silêncio (dB)
+  l: number | null;   // fração do tempo com som alto (0 a 1)
+  pk: number | null;  // pico acima do silêncio (dB)
+  t: number | null;   // temperatura média (°C)
+  u: number | null;   // umidade média (%)
+}
+
+export interface StreetStats {
+  clock_valid: boolean;
+  epoch: number | null;
+  tz_min: number;
+  hour: number | null;
+  since: number | null;
+  loud_db: number;
+  hours: StreetHour[];
 }

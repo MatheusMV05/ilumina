@@ -1,5 +1,7 @@
 #pragma once
 
+#include "LampMonitor.h"
+
 #include <Arduino.h>
 
 #include "Components.h"
@@ -54,6 +56,10 @@ class Diagnostics {
 
   void printReport() const;
   int lamp1Delta() const { return lamp1OpticalDelta; }
+  // Verificação elétrica de cada LED (ausência, fio solto); usada na saúde do componente LEDS
+  void attachLamps(const LampMonitor &monitor) { lamps = &monitor; }
+  // Quanto o LDR ambiente sobe com os 4 LEDs a 100% (medido no boot); descontado na decisão
+  int lampCrosstalk() const { return lampCrosstalk_; }
 
  private:
   struct Entry {
@@ -74,5 +80,7 @@ class Diagnostics {
   bool oledOk = false;
   uint8_t oledAddr = 0;
   bool logChanges = false;    // durante o boot o relatório sai de uma vez no final
-  int lamp1OpticalDelta = 0;  // variação do LDR do poste com o LED 1 aceso no boot
+  int lamp1OpticalDelta = 0;
+  const LampMonitor *lamps = nullptr;
+  int lampCrosstalk_ = 0;  // variação do LDR do poste com o LED 1 aceso no boot
 };

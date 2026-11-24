@@ -1,26 +1,15 @@
 import { useState } from "react";
 import { CaretDownIcon, DotsThreeIcon, FlaskIcon } from "@phosphor-icons/react";
+import type { CSSProperties } from "react";
 
 import { EMPTY, fmtDur, fmtN } from "../format";
-import { HEALTH, SENSORS, reasonText, type SensorMeta, type StatusSpec } from "../sensors";
+import { HEALTH, SENSORS, SENSOR_COLOR, reasonText, type SensorMeta, type StatusSpec } from "../sensors";
 import type { ComponentState, DashboardState, SensorCode, SparkPoint } from "../types";
 import { startTest } from "../useTelemetry";
 import { Sparkline } from "./Charts";
 import { Badge, Orb } from "./StatusOrb";
 
 const RUNNING: StatusSpec = { tone: "busy", icon: DotsThreeIcon, text: "Em andamento" };
-
-function CheckRow({ spec, label, children }: { spec: StatusSpec; label: string; children: React.ReactNode }) {
-  return (
-    <div className="check">
-      <Orb spec={spec} size="sm" />
-      <div>
-        <strong>{label}</strong>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 interface Props<C extends SensorCode> {
   code: C;
@@ -30,7 +19,7 @@ interface Props<C extends SensorCode> {
   testRunning: boolean;
 }
 
-export function SensorCard<C extends SensorCode>({ code, c, d, series, testRunning }: Props<C>) {
+export function SensorCard<C extends SensorCode>({ code, c, d, series, testRunning, index }: Props<C> & { index: number }) {
   const m = SENSORS[code] as SensorMeta<C>;
   const SensorIcon = m.icon;
   const connected = c.link?.state === "CONNECTED";
@@ -56,7 +45,7 @@ export function SensorCard<C extends SensorCode>({ code, c, d, series, testRunni
   const s3: [StatusSpec, string] = t.state === "RUNNING" ? [RUNNING, "Em andamento. Siga a instrução acima."]
     : t.state === "PASSED" ? [HEALTH.OK, `Passou${t.finished_ago_ms !== null ? " há " + fmtDur(t.finished_ago_ms) : ""}: o sensor reagiu ao estímulo.`]
     : t.state === "FAILED" ? [HEALTH.WARNING, `Não reagiu no tempo (${m.reaction(t)}). Tente de novo.`]
-    : [HEALTH.NOT_TESTED, connected ? "Ainda não feito." : "Disponível quando o sensor estiver conectado."];
+    : [HEALTH.NOT_TESTED, connected ? "Falta o teste prático: toque no botão e siga a instrução." : "O teste fica disponível quando o sensor estiver conectado."];
 
   const details = connected ? m.details(c) : [];
   details.push(["Estado do firmware", c.note]);
@@ -66,24 +55,26 @@ export function SensorCard<C extends SensorCode>({ code, c, d, series, testRunni
     ? `${vals.filter((v) => v === 1).length} s detectando`
     : `mín ${fmtN(Math.min(...vals), 1)}, máx ${fmtN(Math.max(...vals), 1)} ${m.unit}`;
 
+  // Os três passos viram uma régua; a mensagem mostrada é a do primeiro passo que ainda pede algo
+  const steps: [string, [StatusSpec, string]][] = [["Conectado", s1], ["Medindo", s2], ["Testado", s3]];
+  const pending = steps.find(([, [spec]]) => spec.tone !== "good");
+  const message = pending ? pending[1][1] : s3[1];
+  const primary = connected && t.state !== "PASSED";
+
   return (
-    <article className={`card${m.lighting ? " lighting-input" : ""}`}>
-      <div className="card-head">
-        <span className="card-icon" aria-hidden="true"><SensorIcon weight="duotone" /></span>
+    <article id={`c-${code}`} className="widget card has-waves" style={{ "--i": index, "--widget-color": SENSOR_COLOR[code] } as CSSProperties}>
+      <div className="widget-head card-head">
+        <span className="chip chip-round" aria-hidden="true"><SensorIcon weight="fill" /></span>
         <div className="card-titles">
-          <h3>{m.title}</h3>
+          <h3 className="widget-title">{m.title}</h3>
           <p className="role">{m.role}</p>
-          <p className="part">
-            <span className="chip">{m.part}</span>
-            <span className="chip">{m.pins}</span>
-            {m.lighting && <span className="chip chip-accent">decisão de luz</span>}
-          </p>
         </div>
         <Badge spec={HEALTH[c.health] ?? HEALTH.NOT_TESTED} />
       </div>
 
       <div className={`reading${value === null ? " off" : ""}`}>
-        <span className="value num">{value === null ? EMPTY : `${value}${unit ? " " + unit : ""}`}</span>
+        {/* A chave muda junto com a leitura, então o valor novo entra com um brilho rápido */}
+        <span className="value num" key={String(value)}>{value === null ? EMPTY : `${value}${unit ? " " + unit : ""}`}</span>
         <span className="meaning">{connected ? meaning : "sem sinal do sensor"}</span>
       </div>
 
@@ -92,35 +83,35 @@ export function SensorCard<C extends SensorCode>({ code, c, d, series, testRunni
         <div className="spark-note"><span>{range}</span><span>últimos 2 min</span></div>
       </div>
 
-      {t.state === "RUNNING" && (
-        <div className="test-box" aria-live="polite">
-          <div className="test-title">Teste em andamento</div>
-          <div className="instruction">{m.instruction}</div>
-          <div className="progress"><div style={{ transform: `scaleX(${t.remaining_ms / t.window_ms})` }} /></div>
-          <div className="test-live">{m.reaction(t)}, {Math.ceil(t.remaining_ms / 1000)} s restantes</div>
-        </div>
-      )}
+      <ol className="stepper" aria-label="Verificações">
+        {steps.map(([label, [spec, text]]) => (
+          <li key={label} className={`tone-${spec.tone}`} title={text}>
+            <Orb spec={spec} size="sm" />
+            <span>{label}</span>
+          </li>
+        ))}
+      </ol>
+      <p className={`step-msg${pending ? ` tone-${pending[1][0].tone}` : ""}`}>{message}</p>
 
-      <div className="checks">
-        <CheckRow spec={s1[0]} label="Conectado"><span>{s1[1]}</span></CheckRow>
-        <CheckRow spec={s2[0]} label="Medindo"><span>{s2[1]}</span></CheckRow>
-        <CheckRow spec={s3[0]} label="Teste prático">
-          <span>{s3[1]}</span>
-          {t.state !== "RUNNING" && (
-            <button type="button" className="btn btn-glass" disabled={!connected || testRunning} onClick={() => startTest(code)}>
-              <FlaskIcon weight="duotone" aria-hidden="true" />
-              {t.state === "PASSED" ? "Testar de novo" : "Fazer teste prático"}
-            </button>
-          )}
-        </CheckRow>
-      </div>
+      {t.state === "RUNNING" ? (
+        <p className="test-note">Teste em andamento. Siga a instrução no painel flutuante.</p>
+      ) : (
+        <button type="button" className={`btn ${primary ? "btn-aqua" : "btn-glass"} card-action`} disabled={!connected || testRunning} onClick={() => startTest(code)}>
+          <FlaskIcon weight="duotone" aria-hidden="true" />
+          {t.state === "PASSED" ? "Testar de novo" : "Fazer teste prático"}
+        </button>
+      )}
 
       <details open={open}>
         <summary onClick={(e) => { e.preventDefault(); setUserOpen(!open); }}>
           <CaretDownIcon weight="bold" aria-hidden="true" className="caret" />
-          Detalhes técnicos e ligação
+          Detalhes e ligação
         </summary>
         <dl className="detail-rows">
+          {steps.map(([label, [, text]]) => (
+            <div className="row" key={label}><dt>{label}</dt><dd>{text}</dd></div>
+          ))}
+          <div className="row"><dt>Componente</dt><dd>{m.part}, {m.pins}</dd></div>
           {details.map(([k, v]) => (
             <div className="row" key={k}><dt>{k}</dt><dd className="num">{String(v)}</dd></div>
           ))}

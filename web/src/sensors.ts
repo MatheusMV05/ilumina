@@ -19,6 +19,10 @@ import {
 import { EMPTY, fmtDur, fmtN } from "./format";
 import type { ByCode, ComponentState, DashboardState, Health, Mode, SensorCode, TestState } from "./types";
 
+// Nível do som acima do piso de ruído aprendido (dB, nunca negativo)
+const aboveFloor = (db: number | null | undefined, floor: number | null | undefined) =>
+  db === null || db === undefined ? null : Math.max(0, db - (floor ?? db));
+
 export type Tone = "good" | "warning" | "serious" | "critical" | "neutral" | "busy";
 export interface StatusSpec {
   tone: Tone;
@@ -133,8 +137,9 @@ export const SENSORS: { [C in SensorCode]: SensorMeta<C> } = {
     details: (c) => [["Leituras válidas", `${c.data.success_pct}%`], ["Última leitura", c.data.age_ms === null ? "nenhuma" : `há ${fmtDur(c.data.age_ms)}`]],
   },
   MQ135: {
-    title: "Qualidade do ar", part: "MQ-135", pins: "GPIO 32", role: "Indicador relativo de gases (não é ppm)", lighting: false, icon: WindIcon,
-    wiring: "VCC 5 V, GND, AO → divisor (10k + 10k) → GPIO 32",
+    title: "Qualidade do ar", part: "MQ-135", pins: "GPIO 36 (VP)", role: "Indicador relativo de gases (não é ppm)", lighting: false, icon: WindIcon,
+    // Mesmo pino do PinMap.h (MQ135_AO); o GPIO 32 é do LDR do poste
+    wiring: "VCC 5 V, GND, AO → divisor (10k + 10k) → GPIO 36 (VP)",
     instruction: "Aproxime, sem encostar, um pouco de álcool em gel do sensor.",
     unit: "ADC",
     spark: (c) => c.data.adc,
@@ -150,23 +155,37 @@ export const SENSORS: { [C in SensorCode]: SensorMeta<C> } = {
     wiring: "+ → 3V3, G → GND, AO → GPIO 34, DO → GPIO 35 (o trimpot azul ajusta o limiar do DO)",
     instruction: "Bata palmas ou fale alto perto do microfone.",
     unit: "dB",
-    spark: (c) => c.data.dbfs,
+    // O KY-038 não mede dB SPL. O número útil é quanto o som está acima do silêncio da sala (sempre >= 0);
+    // o dBFS (relativo ao máximo do ADC) é negativo por definição e fica só nos detalhes
+    spark: (c) => aboveFloor(c.data.dbfs, c.data.floor_dbfs),
     main: (c) => {
-      if (c.data.dbfs === null) return [null, "", ""];
-      const above = c.data.dbfs - (c.data.floor_dbfs ?? c.data.dbfs);
-      return [fmtN(c.data.dbfs), "dB rel.", above < 4 ? "silêncio" : above < 12 ? "som moderado" : "som alto"];
+      const above = aboveFloor(c.data.dbfs, c.data.floor_dbfs);
+      if (above === null) return [null, "", ""];
+      return [fmtN(above), "dB acima do silêncio", above < 4 ? "silêncio" : above < 12 ? "som moderado" : "som alto"];
     },
     measuring: (c) => ({ ok: true, text: `Microfone polarizado em ${c.data.bias} ADC, comparador disparou ${c.data.do_events} vez(es)` }),
     reaction: (t) => `pico de ${fmtN(t.best)} dB acima do silêncio (precisa de ${fmtN(t.target)}) ou disparo do comparador`,
     details: (c) => [
-      ["Pico recente", `${fmtN(c.data.peak_dbfs) ?? EMPTY} dB rel.`],
-      ["Piso de ruído", `${fmtN(c.data.floor_dbfs) ?? EMPTY} dB rel.`],
+      ["Pico recente", `${fmtN(aboveFloor(c.data.peak_dbfs, c.data.floor_dbfs)) ?? EMPTY} dB acima do silêncio`],
+      ["Nível bruto (dBFS)", `${fmtN(c.data.dbfs) ?? EMPTY} dB (0 = máximo do ADC, por isso negativo)`],
+      ["Piso de ruído (dBFS)", `${fmtN(c.data.floor_dbfs) ?? EMPTY} dB`],
       ["Variação (RMS)", `${fmtN(c.data.rms, 1) ?? EMPTY} ADC`],
       ["Nível DC da saída AO", `${c.data.bias} ADC`],
       ["Comparador (DO) agora", c.data.do_active ? "acima do limiar" : "abaixo do limiar"],
       ["Disparos do DO desde que ligou", c.data.do_events],
     ],
   },
+};
+
+// Cor de identidade de cada sensor: pastilha do cartão e vagas no rodapé (não indica estado)
+export const SENSOR_COLOR: Record<SensorCode, string> = {
+  LDR_AMBIENT: "#e9a10f",
+  ULTRASONIC: "#1e90e0",
+  IR: "#7a5bd6",
+  LDR_LOCAL: "#e8781e",
+  DHT11: "#e0566f",
+  MQ135: "#4ea83c",
+  MIC: "#16adc2",
 };
 
 export const SENSOR_ORDER: SensorCode[] = ["LDR_AMBIENT", "ULTRASONIC", "IR", "LDR_LOCAL", "DHT11", "MQ135", "MIC"];

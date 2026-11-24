@@ -89,9 +89,10 @@ void SensorManager::runProbes(uint32_t now) {
   pinMode(Pins::ULTRASONIC_ECHO, INPUT);
 
   // Pinos de ADC com pull interno: pino solto vai de 0 a 4095 com o pull
-  if (Config::MQ135_INSTALLED) mqProbeFloating = adcPinFloats(Pins::MQ135_AO);
-  ambientProbeFloating = adcPinFloats(Pins::LDR_AMBIENT);
-  localProbeFloating = adcPinFloats(Pins::LDR_LOCAL);
+  int up, down;
+  if (Config::MQ135_INSTALLED) mqProbeFloating = adcPinFloats(Pins::MQ135_AO, up, down);
+  ambientProbeFloating = adcPinFloats(Pins::LDR_AMBIENT, data.ambientPullUp, data.ambientPullDown);
+  localProbeFloating = adcPinFloats(Pins::LDR_LOCAL, data.localPullUp, data.localPullDown);
 }
 
 // GPIOs 34 a 39 não têm pull interno: nesses só o ruído da leitura indica pino solto
@@ -101,18 +102,19 @@ bool SensorManager::adcHasPulls(uint8_t pin) {
 
 // Liga pull-up e depois pull-down. Um divisor de 10 kΩ segura a tensão;
 // um pino solto acompanha o pull de ponta a ponta.
-bool SensorManager::adcPinFloats(uint8_t pin) {
+bool SensorManager::adcPinFloats(uint8_t pin, int &withPullUp, int &withPullDown) {
+  withPullUp = withPullDown = -1;
   if (!adcHasPulls(pin)) return false;
   adc1_channel_t channel = static_cast<adc1_channel_t>(digitalPinToAnalogChannel(pin));
   gpio_num_t gpio = static_cast<gpio_num_t>(pin);
   rtc_gpio_pulldown_dis(gpio);
   rtc_gpio_pullup_en(gpio);
   delayMicroseconds(PULL_SETTLE_US);
-  int withPullUp = adc1_get_raw(channel);
+  withPullUp = adc1_get_raw(channel);
   rtc_gpio_pullup_dis(gpio);
   rtc_gpio_pulldown_en(gpio);
   delayMicroseconds(PULL_SETTLE_US);
-  int withPullDown = adc1_get_raw(channel);
+  withPullDown = adc1_get_raw(channel);
   rtc_gpio_pulldown_dis(gpio);
   return withPullUp - withPullDown > 3000;
 }
@@ -122,15 +124,16 @@ bool SensorManager::adcPinFloats(uint8_t pin) {
 void SensorManager::readLdr(uint8_t pin, Reading<int> &reading, float &noise, LinkStatus &status,
                             uint32_t &badSince, bool probeFloating, bool &everLit,
                             uint32_t now) {
+  // Janela de ~17 ms: a média cancela a cintilação de 120 Hz da luz da sala
   double sum = 0, sumSquares = 0;
-  for (uint8_t i = 0; i < Config::LDR_SAMPLES; i++) {
+  for (uint8_t i = 0; i < Config::LDR_SLOW_SAMPLES; i++) {
     int v = analogRead(pin);
     sum += v;
     sumSquares += static_cast<double>(v) * v;
-    delayMicroseconds(ADC_SAMPLE_SPACING_US);
+    delayMicroseconds(Config::LDR_SLOW_SPACING_US);
   }
-  float mean = sum / Config::LDR_SAMPLES;
-  float stddev = sqrt(fmax(0.0, sumSquares / Config::LDR_SAMPLES - mean * mean));
+  float mean = sum / Config::LDR_SLOW_SAMPLES;
+  float stddev = sqrt(fmax(0.0, sumSquares / Config::LDR_SLOW_SAMPLES - mean * mean));
   noise = noise == 0 ? stddev : noise + Config::ADC_NOISE_SMOOTHING * (stddev - noise);
 
   int adc = static_cast<int>(mean + 0.5f);
@@ -161,13 +164,15 @@ void SensorManager::readLdr(uint8_t pin, Reading<int> &reading, float &noise, Li
   reading.timestamp = now;
 }
 
-int SensorManager::sampleLocalLdr() {
+// Média longa: cobre dois ciclos da cintilação de 120 Hz das lâmpadas da sala (rede de 60 Hz),
+// que numa janela curta aparece como ~30 ADC de ruído e esconde a luz de um LED
+int SensorManager::sampleLdr(uint8_t pin) {
   uint32_t sum = 0;
-  for (uint8_t i = 0; i < Config::LDR_SAMPLES; i++) {
-    sum += analogRead(Pins::LDR_LOCAL);
-    delayMicroseconds(ADC_SAMPLE_SPACING_US);
+  for (uint8_t i = 0; i < Config::LDR_SLOW_SAMPLES; i++) {
+    sum += analogRead(pin);
+    delayMicroseconds(Config::LDR_SLOW_SPACING_US);
   }
-  int adc = sum / Config::LDR_SAMPLES;
+  int adc = sum / Config::LDR_SLOW_SAMPLES;
   return Config::LDR_INVERTED ? 4095 - adc : adc;
 }
 
@@ -178,6 +183,15 @@ void SensorManager::updateLdrs(uint32_t now) {
           ambientProbeFloating, ambientEverLit, now);
   readLdr(Pins::LDR_LOCAL, data.localAdc, data.localNoise, data.localLink, localBadSince,
           localProbeFloating, localEverLit, now);
+
+  // Filtro da decisão: uma leitura isolada fora da curva não muda o dia/noite
+  if (!data.ambientAdc.valid) {
+    data.ambientFiltered = -1;
+  } else if (data.ambientFiltered < 0) {
+    data.ambientFiltered = data.ambientAdc.value;
+  } else {
+    data.ambientFiltered += Config::LDR_DECISION_SMOOTHING * (data.ambientAdc.value - data.ambientFiltered);
+  }
 }
 
 // ---------- HC-SR04 ----------
@@ -232,15 +246,14 @@ void SensorManager::updateUltrasonic(uint32_t now) {
   if (result == EchoResult::VALID) {
     data.distanceCm.set(distance, now);
     data.ultrasonicEverEchoed = true;
-    bool inRange = distance >= Config::MIN_DISTANCE_CM && distance <= Config::MAX_DISTANCE_CM;
-    inRangeCount = inRange ? min<uint8_t>(inRangeCount + 1, 255) : 0;
   } else if (result != EchoResult::BUSY) {
     // Sem eco: só indica que não houve medição válida neste ciclo
     data.distanceCm.valid = false;
     data.distanceCm.timestamp = now;
-    inRangeCount = 0;
   }
-  data.ultrasonicPresence = inRangeCount >= Config::ULTRASONIC_CONFIRM_READINGS;
+  if (result == EchoResult::VALID || result == EchoResult::NO_ECHO) {
+    updateMotion(result == EchoResult::VALID ? distance : Config::ULTRASONIC_NO_ECHO_CM, now);
+  }
 
   bool stuck = echoHighSince != 0 && now - echoHighSince > Config::ULTRASONIC_STUCK_MS;
   if (echoFloating) {
@@ -256,6 +269,31 @@ void SensorManager::updateUltrasonic(uint32_t now) {
   } else {
     data.ultrasonicLink = link(Link::CONNECTED);
   }
+}
+
+// Movimento = distância (mediana de 3) longe do fundo aprendido e dentro da faixa.
+// O fundo segue a distância devagar: quem fica parado deixa de contar depois de alguns segundos
+void SensorManager::updateMotion(float cm, uint32_t now) {
+  recentCm[recentPos] = cm;
+  recentPos = (recentPos + 1) % 3;
+  if (recentCount < 3) recentCount++;
+  float a = recentCm[0], b = recentCm[1], c = recentCm[2];
+  float median = recentCount < 3 ? cm : fmaxf(fminf(a, b), fminf(fmaxf(a, b), c));
+  data.distanceMedianCm = median;
+
+  uint32_t elapsed = lastMotionUpdateMs == 0 ? 0 : now - lastMotionUpdateMs;
+  lastMotionUpdateMs = now | 1;
+  if (data.motionBackgroundCm < 0) {
+    data.motionBackgroundCm = median;
+  } else {
+    float alpha = fminf(1.0f, static_cast<float>(elapsed) / Config::MOTION_BACKGROUND_MS);
+    data.motionBackgroundCm += alpha * (median - data.motionBackgroundCm);
+  }
+
+  bool inRange = median >= Config::MIN_DISTANCE_CM && median <= Config::MAX_DISTANCE_CM;
+  bool moved = fabsf(median - data.motionBackgroundCm) >= Config::MOTION_MIN_CHANGE_CM;
+  inRangeCount = inRange && moved ? min<uint8_t>(inRangeCount + 1, 255) : 0;
+  data.ultrasonicPresence = inRangeCount >= Config::ULTRASONIC_CONFIRM_READINGS;
 }
 
 // ---------- Sensor IR ----------
