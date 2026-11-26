@@ -33,6 +33,7 @@ class SensorValidator {
   const Result &result(Component c) const { return results[componentIndex(c)]; }
   bool passed(Component c) const { return result(c).state == State::PASSED; }
   bool failed(Component c) const { return result(c).state == State::FAILED; }
+  bool busy() const { return active >= 0; }
   uint32_t remainingMs(Component c, uint32_t now) const;
   static const char *stateCode(State s);
 

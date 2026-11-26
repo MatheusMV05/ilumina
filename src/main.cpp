@@ -107,7 +107,14 @@ void loop() {
     Serial.printf("[LEDS] painel: L%u -> %s %u%%\n", zone + 1,
                   LightingController::controlLabel(lighting.zoneControl(zone)), lighting.manualPercent(zone));
   }
-  if (dashboard.takeLampCheck()) lamps.check(lighting, r.ambientLink.state == Link::CONNECTED, now);
+  // Verificação pedida pelo painel ou periódica: um LED retirado com o poste ligado aparece
+  // sem ninguém clicar. A periódica espera o fim de um teste prático, que lê os LDRs
+  bool lampCheckRequested = dashboard.takeLampCheck();
+  bool lampCheckDue = Config::LAMP_AUTO_CHECK_MS != 0 && !validator.busy() &&
+                      now - lamps.lastCheckMs() >= Config::LAMP_AUTO_CHECK_MS;
+  if (lampCheckRequested || lampCheckDue) {
+    lamps.check(lighting, r.ambientLink.state == Link::CONNECTED, now);
+  }
   validator.update(r, now);
   diagnostics.evaluate(r, network, validator, now);
 

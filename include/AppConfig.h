@@ -179,6 +179,9 @@ constexpr uint8_t LAMP_CHECK_ROUNDS = 4;
 constexpr uint32_t LAMP_CHECK_SETTLE_MS = 60;
 constexpr int LAMP_CHECK_MIN_DELTA = 12;        // abaixo disso nenhum LED pode ser afirmado
 constexpr float LAMP_CHECK_RELATIVE = 0.35f;    // LED precisa de 35% da resposta do mais forte
+// Repete a verificação sozinho para um LED retirado aparecer sem clique no painel.
+// Cada verificação pisca os LEDs por ~2,5 s; 0 desliga a repetição automática.
+constexpr uint32_t LAMP_AUTO_CHECK_MS = 30000;
 constexpr uint8_t MANUAL_DEFAULT_PERCENT = 100; // brilho de "Ligada" no painel
 
 // ---------- Diagnóstico de inicialização ----------

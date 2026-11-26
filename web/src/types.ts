@@ -97,6 +97,8 @@ export interface LightingState {
   lamps: LampState[];
   lamp_check_ago_ms: number | null;
   lamp_check_no_signal: boolean;
+  // Intervalo da verificação automática (0 = só manual)
+  lamp_check_auto_ms: number;
 }
 
 export type LampControl = "AUTO" | "OFF" | "ON";

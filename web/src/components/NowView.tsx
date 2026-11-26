@@ -97,7 +97,7 @@ function CheckButton({ L }: { L: DashboardState["lighting"] }) {
       <span>
         {checking ? "Os LEDs piscam um por vez por alguns segundos."
           : L.lamp_check_ago_ms === null ? "Ainda não verificados."
-          : `Verificados há ${fmtDur(L.lamp_check_ago_ms)}.`}
+          : `Verificados há ${fmtDur(L.lamp_check_ago_ms)}.${L.lamp_check_auto_ms ? ` Repete sozinho a cada ${fmtDur(L.lamp_check_auto_ms)}.` : ""}`}
       </span>
     </div>
   );

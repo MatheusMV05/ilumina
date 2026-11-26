@@ -71,7 +71,7 @@ export function demoState(): DashboardState {
     summary: "ALERTS",
     network: { wifi_configured: false, wifi: false, mqtt_configured: false, mqtt: false },
     lighting: {
-      lamps, lamp_check_ago_ms: checking ? null : now - demo.checkedAt, lamp_check_no_signal: false,
+      lamps, lamp_check_ago_ms: checking ? null : now - demo.checkedAt, lamp_check_no_signal: false, lamp_check_auto_ms: 30000,
       mode, is_night: demo.night, target_percent: pct, zones, presence_hc: presenceHc, presence_ir: false,
       presence_available: true, hc_usable: true, ir_usable: false, hold_remaining_ms: mode === "ACTIVE" ? holdLeft : 0, reason: "",
     },

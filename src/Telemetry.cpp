@@ -427,6 +427,8 @@ size_t buildDashboardJson(const AppSnapshot &s, char *out, size_t size) {
   else j.null();
   j.key("lamp_check_no_signal");
   j.boolean(s.lamps.noSignal());
+  j.key("lamp_check_auto_ms");
+  j.value("%lu", Config::LAMP_AUTO_CHECK_MS);
   j.key("reason");
   j.text(lightingReason(s));
   j.close('}');
